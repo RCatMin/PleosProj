@@ -48,15 +48,20 @@ object SdkStatusProbe {
         t.initialize(object : TtsInit {
             override fun onSuccess() {
                 Log.i(TAG, "<< TTS 초기화 성공 ($m)")
-                t.addEventListener(object : TtsEvents {
+                runCatching { t.addEventListener(object : TtsEvents {
                     override fun onStart() { Log.i(TAG, "<< TTS onStart") }
                     override fun onReady() { Log.i(TAG, "<< TTS onReady") }
                     override fun onDone() { Log.i(TAG, "<< TTS onDone") }
                     override fun onError(errorType: TtsError) { Log.e(TAG, "<< TTS onError $errorType") }
                     override fun onStop() { Log.i(TAG, "<< TTS onStop") }
                     override fun onUpdatedRms(rms: Double) {}
-                })
-                t.speak("전방 오백 미터, 침수 위험 구간입니다.", false)
+                }) }.onFailure { Log.e(TAG, "<< TTS 리스너 등록 실패: ${it::class.java.simpleName}: ${it.message}") }
+                // 초기화 콜백 안에서 바로 말하면 조용히 실패할 수 있어 메인 스레드에 한 번 넘긴다
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    runCatching { t.speak("전방 오백 미터, 침수 위험 구간입니다.", false) }
+                        .onSuccess { Log.i(TAG, "<< TTS speak 호출") }
+                        .onFailure { Log.e(TAG, "<< TTS speak 실패: ${it::class.java.simpleName}: ${it.message}") }
+                }, 500)
             }
             override fun onFailure(errorType: TtsError) { Log.e(TAG, "<< TTS 초기화 실패 $errorType ($m)") }
         })
