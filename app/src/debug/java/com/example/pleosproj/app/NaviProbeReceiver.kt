@@ -15,6 +15,8 @@ class NaviProbeReceiver : BroadcastReceiver() {
         when (val cmd = intent.getStringExtra("cmd") ?: return) {
             "init" -> NaviProbe.initialize(context)
             "release" -> NaviProbe.release()
+            in setOf("tts_check", "stt_check", "vehicle_check", "control_check") ->
+                SdkStatusProbe.run(context, cmd, intent.getStringExtra("mode"))
             in setOf("fused_check", "fused_init", "fused_last", "fused_start", "fused_stop") -> FusedProbe.run(context, cmd)
             else -> NaviProbe.run(cmd, intent.getStringExtra("keyword"))
         }
