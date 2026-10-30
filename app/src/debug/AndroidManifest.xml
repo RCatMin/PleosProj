@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- PLE-12 확인용: adb 명령으로 NaviHelper를 호출한다 (디버그 빌드 전용) -->
+        <receiver
+            android:name=".app.NaviProbeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.example.pleosproj.NAVI_PROBE" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
