@@ -3,6 +3,7 @@ package com.example.pleosproj.app
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.example.pleosproj.location.FusedProbe
 import com.example.pleosproj.navi.NaviProbe
 
 /**
@@ -14,6 +15,7 @@ class NaviProbeReceiver : BroadcastReceiver() {
         when (val cmd = intent.getStringExtra("cmd") ?: return) {
             "init" -> NaviProbe.initialize(context)
             "release" -> NaviProbe.release()
+            in setOf("fused_check", "fused_init", "fused_last", "fused_start", "fused_stop") -> FusedProbe.run(context, cmd)
             else -> NaviProbe.run(cmd, intent.getStringExtra("keyword"))
         }
     }
