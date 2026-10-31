@@ -23,7 +23,7 @@
 | --- | --- |
 | `ui/` (`ui/state/` 제외), `MainActivity.kt`, `res/` | 자유롭게 수정 |
 | `ui/state/` (화면 상태 모델) | 수정 가능. 단, 변경은 별도 PR로 올리고 사람 승인 후 머지 |
-| `navi/`, `vehicle/`, `location/`, `weather/`, `traffic/`, `risk/`, `scenario/`, `app/` | **수정 금지.** 필요한 변경은 `개발` 라벨 Linear 이슈로 요청한다 |
+| `navi/`, `vehicle/`, `location/`, `voice/`, `weather/`, `traffic/`, `risk/`, `scenario/`, `app/` | **수정 금지.** 필요한 변경은 `개발` 라벨 Linear 이슈로 요청한다 |
 | `AndroidManifest.xml`, Gradle 파일 | 의존성·권한 추가·삭제는 먼저 물어본다. MapLibre 추가는 허용 |
 | `docs/adr/` | 새 ADR을 `Proposed`로 작성만. Accepted 처리 금지 |
 

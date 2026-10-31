@@ -20,7 +20,7 @@
 
 | 경로 (`app/src/main/java/com/example/pleosproj/` 기준) | 권한 |
 | --- | --- |
-| `navi/`, `vehicle/`, `location/`, `weather/`, `traffic/`, `risk/`, `scenario/`, `app/` | 자유롭게 수정 |
+| `navi/`, `vehicle/`, `location/`, `voice/`, `weather/`, `traffic/`, `risk/`, `scenario/`, `app/` | 자유롭게 수정 |
 | `ui/state/` (화면 상태 모델) | 수정 가능. 단, 변경은 별도 PR로 올리고 사람 승인 후 머지 |
 | `ui/` (`ui/state/` 제외), `MainActivity.kt`, `res/` | **수정 금지.** 필요한 변경은 `화면` 라벨 Linear 이슈로 요청한다 |
 | `AndroidManifest.xml`, Gradle 파일 | 수정 가능. 권한·의존성 추가·삭제는 먼저 물어본다 |
