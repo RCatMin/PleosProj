@@ -123,6 +123,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
             circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f),
         ))
         style.addLayer(SymbolLayer("hazard-labels", "hazards").withProperties(
+            textFont(arrayOf("Noto Sans Regular")),
             textField(Expression.get("label")), textSize(19f), textColor("#242127"),
             textHaloColor("#FFFFFF"), textHaloWidth(3f),
             textOffset(arrayOf(0f, 1.7f)), textAllowOverlap(true), textIgnorePlacement(true),
@@ -139,6 +140,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
             circleStrokeColor("#FFFFFF"), circleStrokeWidth(4f),
         ))
         style.addLayer(SymbolLayer("location-labels", "locations").withProperties(
+            textFont(arrayOf("Noto Sans Regular")),
             textField(Expression.get("label")), textSize(18f), textColor("#242127"),
             textHaloColor("#FFFFFF"), textHaloWidth(3f), textOffset(arrayOf(0f, -1.8f)),
             textAllowOverlap(true), textIgnorePlacement(true),
