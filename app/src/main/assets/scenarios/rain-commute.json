@@ -1,0 +1,252 @@
+{
+  "id": "rain-commute",
+  "title": "도심 폭우 퇴근길",
+  "startTime": "18:10",
+  "destinationName": "삼성역",
+  "routes": [
+    {
+      "id": "teheran",
+      "name": "테헤란로",
+      "durationSeconds": 960,
+      "tollWon": 0,
+      "line": [
+        [
+          37.4979,
+          127.0276
+        ],
+        [
+          37.4993,
+          127.032
+        ],
+        [
+          37.5007,
+          127.0365
+        ],
+        [
+          37.5026,
+          127.0428
+        ],
+        [
+          37.5045,
+          127.049
+        ],
+        [
+          37.5066,
+          127.056
+        ],
+        [
+          37.5088,
+          127.0631
+        ]
+      ],
+      "turns": [
+        {
+          "atMeters": 3358.0,
+          "kind": "ARRIVE",
+          "text": "삼성역 도착"
+        }
+      ]
+    },
+    {
+      "id": "bongeunsa",
+      "name": "봉은사로",
+      "durationSeconds": 1080,
+      "tollWon": 0,
+      "line": [
+        [
+          37.4979,
+          127.0276
+        ],
+        [
+          37.501,
+          127.0264
+        ],
+        [
+          37.5046,
+          127.0249
+        ],
+        [
+          37.506,
+          127.0295
+        ],
+        [
+          37.5073,
+          127.034
+        ],
+        [
+          37.5088,
+          127.039
+        ],
+        [
+          37.5103,
+          127.0436
+        ],
+        [
+          37.5117,
+          127.0483
+        ],
+        [
+          37.513,
+          127.053
+        ],
+        [
+          37.5143,
+          127.0602
+        ],
+        [
+          37.5115,
+          127.0617
+        ],
+        [
+          37.5088,
+          127.0631
+        ]
+      ],
+      "turns": [
+        {
+          "atMeters": 782.2,
+          "kind": "RIGHT",
+          "text": "봉은사로로 우회전"
+        },
+        {
+          "atMeters": 4082.6,
+          "kind": "RIGHT",
+          "text": "영동대로로 우회전"
+        },
+        {
+          "atMeters": 4745.5,
+          "kind": "ARRIVE",
+          "text": "삼성역 도착"
+        }
+      ]
+    },
+    {
+      "id": "nambu",
+      "name": "남부순환로",
+      "durationSeconds": 1380,
+      "tollWon": 0,
+      "line": [
+        [
+          37.4979,
+          127.0276
+        ],
+        [
+          37.4923,
+          127.03
+        ],
+        [
+          37.4865,
+          127.0337
+        ],
+        [
+          37.49,
+          127.045
+        ],
+        [
+          37.493,
+          127.055
+        ],
+        [
+          37.4946,
+          127.0636
+        ],
+        [
+          37.5,
+          127.064
+        ],
+        [
+          37.505,
+          127.0638
+        ],
+        [
+          37.5088,
+          127.0631
+        ]
+      ],
+      "turns": [
+        {
+          "atMeters": 1380.5,
+          "kind": "LEFT",
+          "text": "남부순환로로 좌회전"
+        },
+        {
+          "atMeters": 4173.4,
+          "kind": "LEFT",
+          "text": "영동대로로 좌회전"
+        },
+        {
+          "atMeters": 5758.1,
+          "kind": "ARRIVE",
+          "text": "삼성역 도착"
+        }
+      ]
+    }
+  ],
+  "driveRouteId": "bongeunsa",
+  "hazards": [
+    {
+      "id": "seolleung-low",
+      "kind": "FLOOD",
+      "lat": 37.5045,
+      "lng": 127.049,
+      "title": "선릉역 저지대 도로",
+      "detail": "침수 이력이 있는 저지대예요. 18시 17분부터 통제 예정이에요.",
+      "vulnerability": "PAST_FLOOD",
+      "closedFromSeconds": 420
+    },
+    {
+      "id": "seonjeong-water",
+      "kind": "HEAVY_RAIN",
+      "lat": 37.5103,
+      "lng": 127.0436,
+      "title": "선정릉역 부근 물 고임",
+      "detail": "배수가 느린 구간이에요. 속도를 줄여 주세요.",
+      "vulnerability": "NONE"
+    },
+    {
+      "id": "daechi-underpass",
+      "kind": "FLOOD",
+      "lat": 37.5,
+      "lng": 127.064,
+      "title": "대치 지하차도",
+      "detail": "폭우 때 물이 차기 쉬운 지하차도예요.",
+      "vulnerability": "UNDERPASS"
+    }
+  ],
+  "weather": [
+    {
+      "atSeconds": 0,
+      "rainMm": 12,
+      "tempC": 23,
+      "warning": "ADVISORY"
+    },
+    {
+      "atSeconds": 300,
+      "rainMm": 45,
+      "tempC": 22,
+      "warning": "WARNING"
+    },
+    {
+      "atSeconds": 900,
+      "rainMm": 60,
+      "tempC": 22,
+      "warning": "WARNING"
+    },
+    {
+      "atSeconds": 1500,
+      "rainMm": 25,
+      "tempC": 22,
+      "warning": "ADVISORY"
+    }
+  ],
+  "vehicle": [
+    {
+      "atSeconds": 0,
+      "wiper": "LOW"
+    },
+    {
+      "atSeconds": 300,
+      "wiper": "HIGH"
+    }
+  ]
+}
