@@ -24,7 +24,7 @@ class ScenarioEngineTest {
         assertEquals(LocalTime.of(18, 10), scenario.startTime)
         assertEquals(3, scenario.routes.size)
         assertEquals("bongeunsa", scenario.driveRoute.id)
-        assertEquals(TurnKind.RIGHT, scenario.driveRoute.turns.first().kind)
+        assertEquals(TurnKind.ARRIVE, scenario.driveRoute.turns.last().kind)
     }
 
     @Test
@@ -40,8 +40,9 @@ class ScenarioEngineTest {
     @Test
     fun `출발하면 첫 회전까지 거리와 남은 시간을 보여 준다`() {
         val g = engine.guidance(0.0)
-        assertEquals(TurnKind.RIGHT, g.nextTurn!!.kind)
-        assertEquals(782.0, g.nextTurn!!.distanceMeters.toDouble(), 1.0)
+        val first = scenario.driveRoute.turns.first()
+        assertEquals(first.kind, g.nextTurn!!.kind)
+        assertEquals(first.atMeters, g.nextTurn!!.distanceMeters.toDouble(), 1.0)
         assertEquals(1080, g.remainingSeconds)
         assertEquals(LocalTime.of(18, 28), g.arrivalTime)
         assertEquals(0.0, g.progress.currentRatio, 1e-9)
