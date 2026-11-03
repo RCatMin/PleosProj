@@ -45,9 +45,13 @@ fun MapPreviewScreen(surface: MapSurface) {
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 18.dp)) {
                     Text(if (showRoutes) "경로선 숨기기" else "경로선 보기", fontSize = 18.sp)
                 }
+                FilledTonalButton(onClick = { surface.showDriverView(!surface.isDriverView) },
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 18.dp)) {
+                    Text(if (surface.isDriverView) "위에서 보기" else "운전자 시점", fontSize = 18.sp)
+                }
                 FilledTonalButton(onClick = surface::resetCamera,
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 18.dp)) {
-                    Text("서울로 돌아가기", fontSize = 18.sp)
+                    Text(if (surface.isDriverView) "내 위치로" else "경로 전체로", fontSize = 18.sp)
                 }
             }
             Surface(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 8.dp),
