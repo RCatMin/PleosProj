@@ -27,6 +27,13 @@ fun GuidanceMap(surface: MapSurface, state: GuidanceState, modifier: Modifier = 
         LaunchedEffect(surface, leftInset, density) {
             with(density) { surface.setViewportInsets(leftInset.roundToPx(), 200.dp.roundToPx(), 24.dp.roundToPx(), 0) }
         }
+        MapCanvas(surface, Modifier.fillMaxSize())
+    }
+}
+
+@Composable
+internal fun MapCanvas(surface: MapSurface, modifier: Modifier = Modifier) {
+    Box(modifier) {
         AndroidView(factory = { surface.view }, modifier = Modifier.fillMaxSize())
         Surface(Modifier.align(Alignment.BottomStart).padding(10.dp), color = Color.White.copy(alpha = 0.95f)) {
             Text(buildAnnotatedString {

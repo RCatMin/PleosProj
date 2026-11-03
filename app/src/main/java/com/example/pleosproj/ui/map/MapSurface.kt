@@ -10,6 +10,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.pleosproj.ui.state.GuidanceState
+import com.example.pleosproj.ui.state.GeoPoint
+import com.example.pleosproj.ui.state.RouteCompareState
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -33,6 +35,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
     val view: MapView
     private var map: MapLibreMap? = null
     private var guidance: GuidanceState? = null
+    private var comparison: RouteCompareState? = null
     private var destroyed = false
     private var cameraPending = savedState?.getBundle(STATE_KEY) == null
     private var insets = intArrayOf(0, 0, 0, 0)
@@ -65,10 +68,19 @@ class MapSurface(context: Context, savedState: Bundle?) {
 
     fun render(state: GuidanceState) {
         val previous = guidance
+        comparison = null
         guidance = state
         val positionChanged = previous?.myPosition != state.myPosition || previous?.heading != state.heading
         if (previous == null || previous.mode != state.mode || (isDriverView && positionChanged) ||
             (!isDriverView && previous.routeLine != state.routeLine)) cameraPending = true
+        map?.style?.let(::updateSources)
+        if (cameraPending && map != null) resetCamera()
+    }
+
+    fun render(state: RouteCompareState) {
+        if (comparison?.candidates != state.candidates) cameraPending = true
+        guidance = null
+        comparison = state
         map?.style?.let(::updateSources)
         if (cameraPending && map != null) resetCamera()
     }
@@ -92,6 +104,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
             if (!destroyed) {
                 localizeLabels(style)
                 MapBuildingVisibility.addTo(style)
+                addComparisonLayers(style)
                 addGuidanceLayers(style)
                 updateSources(style)
                 if (cameraPending) resetCamera()
@@ -107,8 +120,21 @@ class MapSurface(context: Context, savedState: Bundle?) {
     }
 
     private fun updateSources(style: Style) {
+        val empty = FeatureCollection.fromFeatures(emptyArray<Feature>())
+        comparison?.let { state ->
+            val data = RouteCompareMapData(state)
+            style.getSourceAs<GeoJsonSource>("guidance-route")?.setGeoJson(empty)
+            style.getSourceAs<GeoJsonSource>("compare-routes")?.setGeoJson(data.routeFeatures)
+            style.getSourceAs<GeoJsonSource>("compare-labels")?.setGeoJson(data.labelFeatures)
+            style.getSourceAs<GeoJsonSource>("hazards")?.setGeoJson(data.hazardFeatures)
+            style.getSourceAs<GeoJsonSource>("locations")?.setGeoJson(data.locationFeatures)
+            MapBuildingVisibility.update(style, data.routes, emptyList(), false)
+            return
+        }
         val state = guidance ?: return
         val data = GuidanceMapData(state)
+        style.getSourceAs<GeoJsonSource>("compare-routes")?.setGeoJson(empty)
+        style.getSourceAs<GeoJsonSource>("compare-labels")?.setGeoJson(empty)
         style.getSourceAs<GeoJsonSource>("guidance-route")?.setGeoJson(data.routeFeatures)
         style.getSourceAs<GeoJsonSource>("hazards")?.setGeoJson(data.hazardFeatures)
         style.getSourceAs<GeoJsonSource>("locations")?.setGeoJson(data.locationFeatures)
@@ -117,8 +143,14 @@ class MapSurface(context: Context, savedState: Bundle?) {
     }
 
     fun resetCamera() {
-        val state = guidance ?: return
         val loadedMap = map ?: return
+        comparison?.let { state ->
+            fitCoordinates(loadedMap, state.candidates.flatMap { it.routeLine } +
+                state.candidates.flatMap { it.hazards }.map { it.position })
+            cameraPending = false
+            return
+        }
+        val state = guidance ?: return
         if (isDriverView) {
             loadedMap.moveCamera(CameraUpdateFactory.newCameraPosition(
                 CameraPosition.Builder().target(LatLng(state.myPosition.lat, state.myPosition.lng))
@@ -126,19 +158,54 @@ class MapSurface(context: Context, savedState: Bundle?) {
                     .padding(insets.map { it.toDouble() }.toDoubleArray()).build(),
             ))
         } else {
-            val coordinates = state.routeLine.orEmpty() + state.hazards.map { it.position } + state.myPosition
-            if (coordinates.distinct().size >= 2) {
-                val bounds = LatLngBounds.Builder().includes(coordinates.map { LatLng(it.lat, it.lng) }).build()
-                loadedMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0.0, 0.0,
-                    insets[0] + 48, insets[1] + 48, insets[2] + 48, insets[3] + 48))
-            } else {
-                loadedMap.moveCamera(CameraUpdateFactory.newCameraPosition(
-                    CameraPosition.Builder().target(LatLng(state.myPosition.lat, state.myPosition.lng))
-                        .zoom(15.0).tilt(0.0).bearing(0.0).build(),
-                ))
-            }
+            fitCoordinates(loadedMap, state.routeLine.orEmpty() + state.hazards.map { it.position } + state.myPosition)
         }
         cameraPending = false
+    }
+
+    private fun fitCoordinates(loadedMap: MapLibreMap, coordinates: List<GeoPoint>) {
+        if (coordinates.distinct().size >= 2) {
+            val bounds = LatLngBounds.Builder().includes(coordinates.map { LatLng(it.lat, it.lng) }).build()
+            loadedMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0.0, 0.0,
+                insets[0] + 48, insets[1] + 48, insets[2] + 48, insets[3] + 48))
+        } else if (coordinates.isNotEmpty()) {
+            val point = coordinates.first()
+            loadedMap.moveCamera(CameraUpdateFactory.newCameraPosition(
+                CameraPosition.Builder().target(LatLng(point.lat, point.lng)).zoom(15.0)
+                    .tilt(0.0).bearing(0.0).padding(insets.map { it.toDouble() }.toDoubleArray()).build(),
+            ))
+        }
+    }
+
+    private fun addComparisonLayers(style: Style) {
+        for (source in listOf("compare-routes", "compare-labels")) {
+            style.addSource(GeoJsonSource(source, FeatureCollection.fromFeatures(emptyArray<Feature>())))
+        }
+        val excluded = Expression.eq(Expression.get("excluded"), true)
+        val selected = Expression.eq(Expression.get("selected"), true)
+        val alternative = Expression.all(Expression.eq(Expression.get("selected"), false),
+            Expression.eq(Expression.get("excluded"), false))
+        style.addLayer(LineLayer("compare-outline", "compare-routes").withProperties(
+            lineColor("#FFFFFF"), lineWidth(14f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+        ))
+        style.addLayer(LineLayer("compare-alternative", "compare-routes").withFilter(alternative).withProperties(
+            lineColor("#B5A6D4"), lineWidth(7f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+        ))
+        style.addLayer(LineLayer("compare-excluded", "compare-routes").withFilter(excluded).withProperties(
+            lineColor("#9C2864"), lineWidth(5f), lineDasharray(arrayOf(1.5f, 1.5f)),
+        ))
+        // 선택선을 마지막에 그려 겹치는 출발·도착 구간에서도 선택이 보이게 한다.
+        style.addLayer(LineLayer("compare-selected-outline", "compare-routes").withFilter(selected).withProperties(
+            lineColor("#FFFFFF"), lineWidth(15f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+        ))
+        style.addLayer(LineLayer("compare-selected", "compare-routes").withFilter(selected).withProperties(
+            lineColor("#7145D6"), lineWidth(9f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+        ))
+        style.addLayer(SymbolLayer("compare-route-labels", "compare-labels").withProperties(
+            textFont(arrayOf("Noto Sans Regular")), textField(Expression.get("label")), textSize(22f),
+            textColor("#40344F"), textHaloColor("#FFFFFF"), textHaloWidth(4f),
+            textOffset(arrayOf(0f, -2.2f)), textAllowOverlap(false),
+        ))
     }
 
     private fun localizeLabels(style: Style) {
@@ -173,6 +240,16 @@ class MapSurface(context: Context, savedState: Bundle?) {
         style.addLayer(CircleLayer("destination", "locations")
             .withFilter(Expression.eq(Expression.get("label"), "목적지")).withProperties(
                 circleRadius(10f), circleColor("#242127"), circleStrokeColor("#FFFFFF"), circleStrokeWidth(4f),
+            ))
+        style.addLayer(CircleLayer("departure", "locations")
+            .withFilter(Expression.eq(Expression.get("label"), "출발")).withProperties(
+                circleRadius(10f), circleColor("#FFFFFF"), circleStrokeColor("#7145D6"), circleStrokeWidth(4f),
+            ))
+        style.addLayer(SymbolLayer("endpoint-labels", "locations")
+            .withFilter(Expression.neq(Expression.get("label"), "내 위치")).withProperties(
+                textFont(arrayOf("Noto Sans Regular")), textField(Expression.get("label")), textSize(20f),
+                textColor("#242127"), textHaloColor("#FFFFFF"), textHaloWidth(3f),
+                textOffset(arrayOf(0f, 1.2f)),
             ))
         style.addImage("current-position-arrow", currentPositionArrow())
         style.addLayer(SymbolLayer("current-position", "locations")
