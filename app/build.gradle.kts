@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -9,12 +11,21 @@ android {
         version = release(37)
     }
 
+    // API 키는 local.properties에만 둔다. 없으면(CI 등) 빈 문자열로 빌드된다
+    val localProps = Properties().apply {
+        rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+    }
+    fun localKey(name: String) = "\"" + localProps.getProperty(name, "") + "\""
+
     defaultConfig {
         applicationId = "com.example.pleosproj"
         minSdk = 28
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "KMA_SERVICE_KEY", localKey("KMA_FORECAST_KEY"))
+        buildConfigField("String", "ITS_API_KEY", localKey("ITS_API_KEY"))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -33,6 +44,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {
@@ -60,6 +72,8 @@ dependencies {
     implementation(libs.pleos.speech.to.text)
     implementation(libs.pleos.fused.location)
     testImplementation(libs.junit)
+    // 단위 테스트(JVM)에서는 안드로이드의 org.json이 비어 있어 진짜 구현을 넣는다
+    testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
 }
