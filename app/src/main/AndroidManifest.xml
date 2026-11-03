@@ -54,6 +54,10 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 주행 중(D단)에도 화면을 보여 준다. 주행 중에는 입력 없이 한눈에 읽히는 정보만 보여 준다 (AGENTS.md 화면 규칙) -->
+            <meta-data
+                android:name="distractionOptimized"
+                android:value="true" />
         </activity>
     </application>
 
