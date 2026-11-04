@@ -5,7 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
-import com.example.pleosproj.ui.guidance.GuidancePreviewHost
+import com.example.pleosproj.ui.NavigationPreviewHost
 import com.example.pleosproj.ui.map.MapSurface
 
 class MainActivity : ComponentActivity() {
@@ -16,7 +16,7 @@ class MainActivity : ComponentActivity() {
         mapSurface = MapSurface(this, savedInstanceState)
         setContent {
             MaterialTheme(colorScheme = lightColorScheme()) {
-                GuidancePreviewHost(mapSurface)
+                NavigationPreviewHost(mapSurface)
             }
         }
     }
