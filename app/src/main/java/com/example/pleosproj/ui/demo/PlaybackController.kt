@@ -26,6 +26,7 @@ internal class PlaybackController(
         private set
     var playing by mutableStateOf(false)
         private set
+    val presentationSeconds get() = player.seconds.coerceIn(0.0, durationSeconds.toDouble())
     val finished get() = seconds >= durationSeconds
     private var generation = 0
     private var player = newPlayer(1.0)

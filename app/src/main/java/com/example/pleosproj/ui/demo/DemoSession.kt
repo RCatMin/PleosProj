@@ -1,6 +1,9 @@
 package com.example.pleosproj.ui.demo
 
 import android.content.Context
+import com.example.pleosproj.ui.map.RouteMotion
+import com.example.pleosproj.ui.map.MapMotion
+import com.example.pleosproj.ui.state.GeoPoint
 import com.example.pleosproj.scenario.ScenarioEngine
 import com.example.pleosproj.scenario.ScenarioPlayer
 
@@ -11,6 +14,8 @@ internal class DemoSession(context: Context) {
     val title = scenario.title
     val driveRouteId = scenario.driveRouteId
     val driveRouteName = scenario.driveRoute.name
+    private val motion = RouteMotion(scenario.driveRoute.line.map { GeoPoint(it.lat, it.lng) })
+    fun motionFrame(): MapMotion = motion.at(playback.presentationSeconds / playback.durationSeconds)
     val comparison = engine.compare()
     val briefing = engine.briefing(speaking = false)
     val playback = PlaybackController(engine.guidance(0.0), scenario.driveRoute.durationSeconds) { speed, onState ->

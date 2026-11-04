@@ -78,6 +78,22 @@ class PlaybackControllerTest {
         assertEquals(10.0, controller.seconds, 0.0)
     }
 
+    @Test
+    fun presentationClockMovesBetweenSnapshotsAndFreezesWithPlayer() {
+        val controller = controller()
+        controller.play()
+        players.single().emit(10.0)
+        players.single().seconds = 10.375
+        assertEquals(10.0, controller.seconds, 0.0)
+        assertEquals(10.375, controller.presentationSeconds, 0.0)
+        controller.stop()
+        controller.changeSpeed(4.0)
+        assertEquals(10.375, controller.presentationSeconds, 0.0)
+        assertFalse(controller.playing)
+        controller.reset()
+        assertEquals(0.0, controller.presentationSeconds, 0.0)
+    }
+
     private class FakePlayer(val rate: Double, val callback: (Double, GuidanceState) -> Unit) : DemoPlayer {
         override var seconds = 0.0
         var running = false

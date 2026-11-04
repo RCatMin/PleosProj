@@ -26,6 +26,7 @@ private val Ink = Color(0xFF232228)
 @Composable
 internal fun DemoHost(surface: MapSurface, session: DemoSession, onExit: () -> Unit) {
     val playback = session.playback
+    val motionFrame = remember(session) { { session.motionFrame() } }
     var page by remember { mutableStateOf(DemoPage.BRIEFING) }
     var selectedId by remember { mutableStateOf(session.comparison.selectedId) }
     var acknowledgedId by remember { mutableStateOf<String?>(null) }
@@ -77,7 +78,7 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onExit: () -> U
                         onEnd = { playback.stop(); confirmEnd = true },
                         onToggleViewpoint = { surface.showDriverView(!surface.isDriverView) },
                         onRecenter = surface::resetCamera, driverView = surface.isDriverView,
-                        mapContent = { GuidanceMap(surface, state, it) })
+                        mapContent = { GuidanceMap(surface, state, it, motionFrame) })
                     DemoPage.ENDED -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
                             Text(if (playback.finished) "${session.briefing.destinationName} 도착 · 시연 완료" else "시연 안내를 종료했어요",
