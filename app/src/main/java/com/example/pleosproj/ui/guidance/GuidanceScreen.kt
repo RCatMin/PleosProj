@@ -101,7 +101,7 @@ private fun WeatherPanel(weather: List<WeatherCard>) {
                 if (index > 0) HorizontalDivider(color = Color(0xFFEEECEF))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    WeatherGlyph(item.rainMmPerHour > 0, item.snow, Modifier.size(60.dp))
+                    WeatherGlyph(item.rainMmPerHour > 0, item.snow, Modifier.size(60.dp), animated = false)
                     Column(Modifier.weight(1f)) {
                         Text(item.label, fontSize = 23.sp, fontWeight = FontWeight.SemiBold)
                         val rain = if (item.snow) "눈" else if (item.rainMmPerHour > 0) "비 ${item.rainMmPerHour}mm/h" else "비 없음"

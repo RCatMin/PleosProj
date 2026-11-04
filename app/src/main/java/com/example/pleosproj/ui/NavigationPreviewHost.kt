@@ -81,44 +81,46 @@ fun NavigationPreviewHost(surface: MapSurface) {
                     }
                 }
             }
-            if (screen == PreviewScreen.BRIEFING) BriefingScreen(
-                state = if (clearBriefing) PreviewStates.briefingClear else PreviewStates.briefing,
-                isParked = parkedPreview,
-                onStart = { selectedRouteId = comparison.recommendedId ?: selectedRouteId; livePreview = false; showGuidance() },
-                onCompare = { screen = PreviewScreen.COMPARE },
-                onDrivingStarted = { showGuidance() },
-                modifier = Modifier.weight(1f),
-            ) else if (screen == PreviewScreen.COMPARE) RouteCompareScreen(
-                state = comparison,
-                onSelect = { id -> if (comparison.candidates.any { it.id == id && !it.excluded }) selectedRouteId = id },
-                onStart = { startRequestId = it },
-                onFitRoutes = surface::resetCamera,
-                mapContent = { RouteCompareMap(surface, comparison, it) },
-                modifier = Modifier.weight(1f),
-            ) else if (ended) {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                        Text("안내를 종료했어요", fontSize = 40.sp, fontWeight = FontWeight.Bold)
-                        Text("${state.destinationName}까지의 예시 안내가 끝났습니다", fontSize = 24.sp)
-                        Button(onClick = { ended = false; acknowledgedId = null },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF232228)),
-                            contentPadding = PaddingValues(24.dp)) { Text("예시 다시 보기", fontSize = 24.sp) }
+            NavigationTransition(screen to (screen == PreviewScreen.GUIDANCE && ended), Modifier.weight(1f).fillMaxWidth()) { (displayed, displayedEnded) ->
+                if (displayed == PreviewScreen.BRIEFING) BriefingScreen(
+                    state = if (clearBriefing) PreviewStates.briefingClear else PreviewStates.briefing,
+                    isParked = parkedPreview,
+                    onStart = { selectedRouteId = comparison.recommendedId ?: selectedRouteId; livePreview = false; showGuidance() },
+                    onCompare = { screen = PreviewScreen.COMPARE },
+                    onDrivingStarted = { showGuidance() },
+                    modifier = Modifier.fillMaxSize(),
+                ) else if (displayed == PreviewScreen.COMPARE) RouteCompareScreen(
+                    state = comparison,
+                    onSelect = { id -> if (comparison.candidates.any { it.id == id && !it.excluded }) selectedRouteId = id },
+                    onStart = { startRequestId = it },
+                    onFitRoutes = surface::resetCamera,
+                    mapContent = { RouteCompareMap(surface, comparison, it) },
+                    modifier = Modifier.fillMaxSize(),
+                ) else if (displayedEnded) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                            Text("안내를 종료했어요", fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                            Text("${state.destinationName}까지의 예시 안내가 끝났습니다", fontSize = 24.sp)
+                            Button(onClick = { ended = false; acknowledgedId = null },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF232228)),
+                                contentPadding = PaddingValues(24.dp)) { Text("예시 다시 보기", fontSize = 24.sp) }
+                        }
                     }
-                }
-            } else GuidanceScreen(
-                state = state,
-                voiceMuted = voiceMuted,
-                onAcknowledge = { acknowledgedId = it },
-                onDetour = { acknowledgedId = state.alert?.hazardId; previewEvent("우회 요청 · 예시 동작") },
-                onOtherRoutes = { screen = PreviewScreen.COMPARE },
-                onToggleVoice = { voiceMuted = !voiceMuted },
-                onEnd = { confirmEnd = true },
-                onToggleViewpoint = { surface.showDriverView(!surface.isDriverView) },
-                onRecenter = surface::resetCamera,
-                driverView = surface.isDriverView,
-                mapContent = { GuidanceMap(surface, state, it) },
-                modifier = Modifier.weight(1f),
-            )
+                } else GuidanceScreen(
+                    state = state,
+                    voiceMuted = voiceMuted,
+                    onAcknowledge = { acknowledgedId = it },
+                    onDetour = { acknowledgedId = state.alert?.hazardId; previewEvent("우회 요청 · 예시 동작") },
+                    onOtherRoutes = { screen = PreviewScreen.COMPARE },
+                    onToggleVoice = { voiceMuted = !voiceMuted },
+                    onEnd = { confirmEnd = true },
+                    onToggleViewpoint = { surface.showDriverView(!surface.isDriverView) },
+                    onRecenter = surface::resetCamera,
+                    driverView = surface.isDriverView,
+                    mapContent = { GuidanceMap(surface, state, it) },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 140.dp))
     }

@@ -1,5 +1,6 @@
 package com.example.pleosproj.ui.guidance
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -10,9 +11,14 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.example.pleosproj.ui.state.TurnKind
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlin.math.cos
 
 internal fun turnName(kind: TurnKind) = when (kind) {
     TurnKind.LEFT -> "좌회전"
@@ -98,9 +104,14 @@ internal fun TurnGlyph(kind: TurnKind, modifier: Modifier, color: Color = Color(
 }
 
 @Composable
-internal fun WeatherGlyph(rain: Boolean, snow: Boolean, modifier: Modifier) {
+internal fun WeatherGlyph(rain: Boolean, snow: Boolean, modifier: Modifier, animated: Boolean = true) {
+    val phase = if (animated) rememberInfiniteTransition(label = "weather").animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing)), label = "weather-cycle",
+    ) else null
     Canvas(modifier) {
         val unit = size.minDimension / 100f
+        val cycle = phase?.value ?: 0f
         val color = Color(0xFF3E6264)
         val cloud = Path().apply {
             moveTo(20 * unit, 62 * unit)
@@ -109,14 +120,36 @@ internal fun WeatherGlyph(rain: Boolean, snow: Boolean, modifier: Modifier) {
             cubicTo(95 * unit, 27 * unit, 105 * unit, 64 * unit, 78 * unit, 64 * unit)
             close()
         }
-        if (!rain && !snow) drawCircle(Color(0xFFBC8A45), 18 * unit, Offset(71 * unit, 27 * unit))
-        drawPath(cloud, Color(0xFFE5ECEA))
-        drawPath(cloud, color, style = Stroke(4 * unit, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        if (rain || snow) for (x in listOf(29f, 50f, 71f)) {
+        if (!rain && !snow) {
+            val sun = Color(0xFFBC8A45)
+            val center = Offset(71 * unit, 27 * unit)
+            rotate(cycle * 45f, center) {
+                repeat(8) { ray ->
+                    val angle = ray * PI / 4
+                    drawLine(sun.copy(alpha = 0.65f),
+                        center + Offset(cos(angle).toFloat(), sin(angle).toFloat()) * (22 * unit),
+                        center + Offset(cos(angle).toFloat(), sin(angle).toFloat()) * (27 * unit),
+                        strokeWidth = 2 * unit, cap = StrokeCap.Round)
+                }
+            }
+            drawCircle(sun, 18 * unit, center)
+        }
+        // 아이콘의 작은 범위에서만 움직이고, 정보의 자리와 크기는 유지한다.
+        translate(if (animated) sin(cycle * 2 * PI).toFloat() * 1.5f * unit else 0f, 0f) {
+            drawPath(cloud, Color(0xFFE5ECEA))
+            drawPath(cloud, color, style = Stroke(4 * unit, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+        if (rain || snow) for ((index, x) in listOf(29f, 50f, 71f).withIndex()) {
+            val fall = if (animated) (cycle * 3 + index * 0.33f) % 1f else 0.5f
+            val y = 75f + fall * 17f
+            val dropColor = if (animated) color.copy(alpha = sin(fall * PI).toFloat().coerceIn(0f, 1f)) else color
             if (snow) {
-                drawLine(color, Offset((x - 5) * unit, 83 * unit), Offset((x + 5) * unit, 83 * unit), 3 * unit)
-                drawLine(color, Offset(x * unit, 78 * unit), Offset(x * unit, 88 * unit), 3 * unit)
-            } else drawLine(color, Offset(x * unit, 78 * unit), Offset((x - 5) * unit, 91 * unit), 4 * unit, StrokeCap.Round)
+                val drift = if (animated) sin(fall * PI * 2).toFloat() * 2f else 0f
+                val center = Offset((x + drift) * unit, y * unit)
+                drawLine(dropColor, center - Offset(4 * unit, 0f), center + Offset(4 * unit, 0f), 2.5f * unit)
+                drawLine(dropColor, center - Offset(0f, 4 * unit), center + Offset(0f, 4 * unit), 2.5f * unit)
+            } else drawLine(dropColor, Offset(x * unit, y * unit), Offset((x - 4) * unit, (y + 7) * unit),
+                4 * unit, StrokeCap.Round)
         }
     }
 }
