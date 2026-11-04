@@ -42,6 +42,7 @@ fun RouteCompareScreen(
     onFitRoutes: () -> Unit,
     mapContent: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
+    startNotice: String? = null,
 ) {
     val selected = state.selectedRoute()
     Column(modifier.fillMaxSize().background(Color(0xFFF7F7F8))) {
@@ -96,6 +97,7 @@ fun RouteCompareScreen(
                     Text(selected?.let { "${durationText(it.durationSeconds)} · ${distanceText(it.distanceMeters)} · ${it.riskSummary}" }
                         ?: "통제 상황을 확인한 뒤 다시 시도해 주세요", fontSize = 22.sp, color = Muted,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    startNotice?.let { Text(it, fontSize = 21.sp, lineHeight = 30.sp, color = Purple) }
                 }
                 Button(onClick = { selected?.let { onStart(it.id) } }, enabled = selected != null,
                     shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Ink),

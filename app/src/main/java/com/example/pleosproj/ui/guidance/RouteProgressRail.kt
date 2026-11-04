@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pleosproj.ui.hazardColor
@@ -67,19 +68,18 @@ internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, mo
             }
             Text("내 위치", Modifier.offset(x = 48.dp, y = height * (1 - current).toFloat() - 14.dp),
                 fontSize = 21.sp, color = purple, fontWeight = FontWeight.SemiBold)
-            // 라벨은 현재 위치 앞의 구간만 보여 주고, 경로의 원래 순서·비율은 바꾸지 않는다.
-            progress.segments.filter { max(it.startRatio, it.endRatio) > current }.forEach { segment ->
-                val middle = (segment.startRatio + segment.endRatio) / 2
-                val top = (height * (1 - middle.coerceIn(0.0, 1.0)).toFloat() - 24.dp)
-                    .coerceIn(0.dp, (height - 50.dp).coerceAtLeast(0.dp))
+            // 선과 표식은 실제 비율을 유지하고, 가까운 구간의 설명만 겹치지 않게 배치한다.
+            railLabels(progress, height.value).forEach { item ->
+                val segment = item.segment
                 val label = segment.label ?: when (segment.kind) {
                     SegmentKind.TURN -> "회전"
                     SegmentKind.CONGESTION_SLOW -> "서행"
                     SegmentKind.CONGESTION_HEAVY -> "정체"
                     SegmentKind.HAZARD -> "위험 구간"
                 }
-                Column(Modifier.offset(x = 48.dp, y = top)) {
-                    Text(label, fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = segmentColor(segment), maxLines = 1)
+                Column(Modifier.padding(start = 48.dp).fillMaxWidth().offset(y = item.top.dp)) {
+                    Text(label, fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = segmentColor(segment),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val distance = ((segment.startRatio - current).coerceAtLeast(0.0) * progress.totalMeters).toInt()
                     Text(distanceText(distance), fontSize = 19.sp, color = Color(0xFF68666D))
                 }
@@ -94,4 +94,26 @@ private fun segmentColor(segment: ProgressSegment): Color = when (segment.kind) 
     SegmentKind.CONGESTION_SLOW -> Color(0xFFC39A25)
     SegmentKind.CONGESTION_HEAVY -> Color(0xFFD05252)
     SegmentKind.HAZARD -> Color(hazardColor(segment.hazardKind ?: HazardKind.FLOOD))
+}
+
+internal data class RailLabel(val segment: ProgressSegment, val top: Float)
+
+internal fun railLabels(progress: RouteProgress, height: Float): List<RailLabel> {
+    val current = progress.currentRatio.coerceIn(0.0, 1.0)
+    val labelHeight = 58f
+    val spacing = 76f
+    // 내 위치 설명 위에 여유를 두고, 공간이 부족해지면 먼 구간부터 생략한다.
+    val bottom = (height * (1 - current).toFloat() - 36f).coerceAtLeast(0f)
+    val count = (((bottom - labelHeight) / spacing).toInt() + 1).coerceIn(0, 4)
+        .let { if (bottom < labelHeight) 0 else it }
+    val segments = progress.segments.filter { max(it.startRatio, it.endRatio) > current }
+        .sortedBy { it.startRatio }.distinctBy { it.kind to it.label }.take(count).reversed()
+    var previous = -spacing
+    return segments.mapIndexed { index, segment ->
+        val ideal = height * (1 - (segment.startRatio + segment.endRatio) / 2).toFloat() - labelHeight / 2
+        val upper = bottom - labelHeight - (segments.lastIndex - index) * spacing
+        val top = ideal.coerceIn(previous + spacing, upper.coerceAtLeast(previous + spacing))
+        previous = top
+        RailLabel(segment, top)
+    }
 }
