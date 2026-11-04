@@ -1,7 +1,16 @@
 package com.example.pleosproj.ui.briefing
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -10,13 +19,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -31,10 +44,25 @@ import com.example.pleosproj.ui.state.BriefingState
 import com.example.pleosproj.ui.state.RiskLevel
 import com.example.pleosproj.ui.state.WeatherCard
 import java.time.format.DateTimeFormatter
+import kotlin.math.PI
+import kotlin.math.sin
 
 private val Ink = Color(0xFF232228)
 private val Muted = Color(0xFF68666D)
 private val Teal = Color(0xFF16776F)
+
+// 배치는 고정하고 그리기만 바꾼다. Compose 표준 애니메이션 배율을 따른다.
+@Composable
+private fun Modifier.revealOnEntry(delayMillis: Int): Modifier {
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
+    val progress = animateFloatAsState(if (entered) 1f else 0f,
+        animationSpec = tween(420, delayMillis, FastOutSlowInEasing), label = "briefing-entry")
+    return graphicsLayer {
+        alpha = progress.value
+        translationY = (1f - progress.value) * 18.dp.toPx()
+    }
+}
 
 // 정차 여부는 바깥에서 판단한다. 알 수 없는 상태에서는 입력을 열지 않는다.
 @Composable
@@ -56,7 +84,7 @@ fun BriefingScreen(
     }
     Column(modifier.fillMaxSize().background(Color(0xFFF7F7F8))) {
         Column(Modifier.weight(1f).fillMaxWidth().padding(28.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            Row(Modifier.fillMaxWidth().revealOnEntry(0), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(48.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("오늘의 목적지", fontSize = 23.sp, color = Muted)
@@ -75,22 +103,28 @@ fun BriefingScreen(
                 }
             }
             Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                RiskSummary(state, Modifier.weight(1.7f).fillMaxHeight())
-                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                RiskSummary(state, Modifier.weight(1.7f).fillMaxHeight().revealOnEntry(80))
+                Column(Modifier.weight(1f).fillMaxHeight().revealOnEntry(150), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     Text("경로 날씨", fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = Ink)
-                    if (state.weather.isEmpty()) {
-                        Surface(shape = RoundedCornerShape(20.dp), color = Color.White) {
-                            Text("날씨 정보를 기다리고 있어요", Modifier.fillMaxWidth().padding(28.dp),
-                                fontSize = 26.sp, lineHeight = 36.sp, color = Muted)
+                    Crossfade(state.weather, Modifier.weight(1f), animationSpec = tween(240), label = "briefing-weather") { weather ->
+                        if (weather.isEmpty()) {
+                            Surface(shape = RoundedCornerShape(20.dp), color = Color.White) {
+                                Text("날씨 정보를 기다리고 있어요", Modifier.fillMaxWidth().padding(28.dp),
+                                    fontSize = 26.sp, lineHeight = 36.sp, color = Muted)
+                            }
+                        } else LazyColumn(verticalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.fillMaxSize()) {
+                            itemsIndexed(weather) { _, item -> BriefingWeather(item) }
                         }
-                    } else LazyColumn(verticalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.weight(1f)) {
-                        itemsIndexed(state.weather) { _, weather -> BriefingWeather(weather) }
                     }
                 }
             }
-            SpeakingStatus(state.speaking)
+            Box(Modifier.revealOnEntry(200)) { SpeakingStatus(state.speaking) }
         }
-        Surface(color = Color.White) {
+        val startInteraction = remember { MutableInteractionSource() }
+        val startPressed by startInteraction.collectIsPressedAsState()
+        val startScale = animateFloatAsState(if (startPressed) 0.97f else 1f,
+            animationSpec = tween(120), label = "briefing-start-press")
+        Surface(Modifier.revealOnEntry(240), color = Color.White) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 24.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 Text(if (isParked == true) "출발 전, 경로의 위험과 날씨를 확인하세요" else "정차 상태를 확인하면 출발할 수 있어요",
@@ -100,6 +134,8 @@ fun BriefingScreen(
                     Text("경로 비교 보기", fontSize = 27.sp, color = if (isParked == true) Ink else Muted)
                 }
                 Button(onClick = onStart, enabled = isParked == true, shape = RoundedCornerShape(18.dp),
+                    interactionSource = startInteraction,
+                    modifier = Modifier.graphicsLayer { scaleX = startScale.value; scaleY = startScale.value },
                     colors = ButtonDefaults.buttonColors(containerColor = Ink),
                     contentPadding = PaddingValues(horizontal = 44.dp, vertical = 25.dp)) {
                     Text("안전 경로로 출발", fontSize = 29.sp, fontWeight = FontWeight.SemiBold)
@@ -112,12 +148,12 @@ fun BriefingScreen(
 @Composable
 private fun RiskSummary(state: BriefingState, modifier: Modifier) {
     val clear = state.riskLines.isEmpty()
-    val color = when {
+    val color by animateColorAsState(when {
         clear -> Teal
         state.overallLevel == RiskLevel.HIGH -> Color(0xFF9C2864)
         state.overallLevel == RiskLevel.MEDIUM -> Color(0xFF886344)
         else -> Teal
-    }
+    }, animationSpec = tween(240), label = "briefing-risk-color")
     val level = when {
         clear -> "위험 없음"
         state.overallLevel == RiskLevel.HIGH -> "위험 높음"
@@ -136,26 +172,29 @@ private fun RiskSummary(state: BriefingState, modifier: Modifier) {
                 }
             }
             HorizontalDivider(color = Color(0xFFE8E5EC))
-            if (clear) Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally) {
-                Canvas(Modifier.size(88.dp)) {
-                    drawCircle(color.copy(alpha = 0.08f))
-                    val path = Path().apply {
-                        moveTo(size.width * 0.28f, size.height * 0.51f)
-                        lineTo(size.width * 0.44f, size.height * 0.67f)
-                        lineTo(size.width * 0.74f, size.height * 0.34f)
+            AnimatedContent(state.riskLines, Modifier.weight(1f).fillMaxWidth(), label = "briefing-risk-content",
+                transitionSpec = { (fadeIn(tween(240, 80)) togetherWith fadeOut(tween(120))).using(null) }) { riskLines ->
+                if (riskLines.isEmpty()) Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    Canvas(Modifier.size(88.dp)) {
+                        drawCircle(color.copy(alpha = 0.08f))
+                        val path = Path().apply {
+                            moveTo(size.width * 0.28f, size.height * 0.51f)
+                            lineTo(size.width * 0.44f, size.height * 0.67f)
+                            lineTo(size.width * 0.74f, size.height * 0.34f)
+                        }
+                        drawPath(path, color, style = Stroke(6.dp.toPx(), cap = StrokeCap.Round))
                     }
-                    drawPath(path, color, style = Stroke(6.dp.toPx(), cap = StrokeCap.Round))
-                }
-                Spacer(Modifier.height(28.dp))
-                Text("오늘 경로에 위험 없음", fontSize = 36.sp, lineHeight = 48.sp, fontWeight = FontWeight.SemiBold, color = Ink)
-            } else LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                itemsIndexed(state.riskLines) { index, line ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.Top) {
-                        Text("%02d".format(index + 1), Modifier.padding(top = 6.dp), fontSize = 23.sp,
-                            fontWeight = FontWeight.SemiBold, color = color)
-                        Text(line, fontSize = 34.sp, lineHeight = 48.sp, color = Ink)
+                    Spacer(Modifier.height(28.dp))
+                    Text("오늘 경로에 위험 없음", fontSize = 36.sp, lineHeight = 48.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                } else LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    itemsIndexed(riskLines) { index, line ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.Top) {
+                            Text("%02d".format(index + 1), Modifier.padding(top = 6.dp), fontSize = 23.sp,
+                                fontWeight = FontWeight.SemiBold, color = color)
+                            Text(line, fontSize = 34.sp, lineHeight = 48.sp, color = Ink)
+                        }
                     }
                 }
             }
@@ -186,10 +225,16 @@ private fun BriefingWeather(weather: WeatherCard) {
 @Composable
 private fun SpeakingStatus(speaking: Boolean) {
     val color = if (speaking) Teal else Muted
+    val phase = if (speaking) rememberInfiniteTransition(label = "briefing-speaking").animateFloat(
+        initialValue = 0f, targetValue = (2 * PI).toFloat(),
+        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing)), label = "briefing-wave",
+    ) else null
     Row(Modifier.semantics { liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Canvas(Modifier.size(width = 34.dp, height = 30.dp)) {
-            val heights = if (speaking) listOf(0.3f, 0.7f, 1f, 0.5f, 0.3f) else List(5) { 0.2f }
+            val heights = if (speaking) List(5) { index ->
+                0.25f + 0.65f * ((sin((phase?.value ?: 0f) + index * 1.2f) + 1f) / 2f)
+            } else List(5) { 0.2f }
             heights.forEachIndexed { index, height ->
                 val x = size.width * (index + 0.5f) / heights.size
                 drawLine(color, Offset(x, size.height * (1 - height) / 2),
