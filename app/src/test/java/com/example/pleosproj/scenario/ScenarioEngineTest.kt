@@ -109,4 +109,9 @@ class ScenarioEngineTest {
         assertTrue(b.riskLines.any { it.contains("통제") })
         assertTrue(b.riskLines.any { it.contains("60mm") })
     }
+
+    @Test
+    fun `위험 지점마다 음성 경고 문장이 있다`() {
+        scenario.hazards.forEach { assertTrue(HazardVoiceAlerts.message(it).contains(it.title)) }
+    }
 }
