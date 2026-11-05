@@ -29,6 +29,7 @@ import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.Point
 
 // SDK 타입은 ui/map/ 안에서만 쓰고, 화면에서는 공유 상태 모델만 넘긴다.
 class MapSurface(context: Context, savedState: Bundle?) {
@@ -37,6 +38,12 @@ class MapSurface(context: Context, savedState: Bundle?) {
     private var guidance: GuidanceState? = null
     private var comparison: RouteCompareState? = null
     private var destroyed = false
+    private var resumed = false
+    private var continuousMotion = false
+    private var motion: MapMotion? = null
+    private var renderedGuidance: GuidanceState? = null
+    private var renderedComparison: RouteCompareState? = null
+    private var renderedDriverView: Boolean? = null
     private var cameraPending = savedState?.getBundle(STATE_KEY) == null
     private var insets = intArrayOf(0, 0, 0, 0)
     var isDriverView by mutableStateOf(savedState?.getBoolean(VIEWPOINT_KEY, true) ?: true)
@@ -66,18 +73,30 @@ class MapSurface(context: Context, savedState: Bundle?) {
         }
     }
 
-    fun render(state: GuidanceState) {
+    fun render(state: GuidanceState, continuous: Boolean = false) {
         val previous = guidance
         comparison = null
         guidance = state
+        continuousMotion = continuous
+        if (!continuous || previous?.routeLine != state.routeLine ||
+            state.progress.currentRatio < (previous?.progress?.currentRatio ?: 0.0)) motion = null
         val positionChanged = previous?.myPosition != state.myPosition || previous?.heading != state.heading
-        if (previous == null || previous.mode != state.mode || (isDriverView && positionChanged) ||
+        if (previous == null || previous.mode != state.mode || (isDriverView && positionChanged && !continuous) ||
             (!isDriverView && previous.routeLine != state.routeLine)) cameraPending = true
         map?.style?.let(::updateSources)
         if (cameraPending && map != null) resetCamera()
     }
 
+    internal fun renderMotion(frame: MapMotion) {
+        if (!resumed || !continuousMotion || guidance == null || motion == frame) return
+        motion = frame
+        map?.style?.let { updatePosition(it, frame) }
+        if (isDriverView) followPosition(frame)
+    }
+
     fun render(state: RouteCompareState) {
+        continuousMotion = false
+        motion = null
         if (comparison?.candidates != state.candidates) cameraPending = true
         guidance = null
         comparison = state
@@ -102,6 +121,9 @@ class MapSurface(context: Context, savedState: Bundle?) {
         loadMessage = "지도를 불러오는 중이에요"
         map?.setStyle(Style.Builder().fromUri("https://tiles.openfreemap.org/styles/positron")) { style ->
             if (!destroyed) {
+                renderedGuidance = null
+                renderedComparison = null
+                renderedDriverView = null
                 localizeLabels(style)
                 MapBuildingVisibility.addTo(style)
                 addComparisonLayers(style)
@@ -122,6 +144,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
     private fun updateSources(style: Style) {
         val empty = FeatureCollection.fromFeatures(emptyArray<Feature>())
         comparison?.let { state ->
+            if (renderedComparison == state) return
             val data = RouteCompareMapData(state)
             style.getSourceAs<GeoJsonSource>("guidance-route")?.setGeoJson(empty)
             style.getSourceAs<GeoJsonSource>("compare-routes")?.setGeoJson(data.routeFeatures)
@@ -129,17 +152,61 @@ class MapSurface(context: Context, savedState: Bundle?) {
             style.getSourceAs<GeoJsonSource>("hazards")?.setGeoJson(data.hazardFeatures)
             style.getSourceAs<GeoJsonSource>("locations")?.setGeoJson(data.locationFeatures)
             MapBuildingVisibility.update(style, data.routes, emptyList(), false)
+            renderedComparison = state
+            renderedGuidance = null
+            renderedDriverView = null
             return
         }
         val state = guidance ?: return
-        val data = GuidanceMapData(state)
-        style.getSourceAs<GeoJsonSource>("compare-routes")?.setGeoJson(empty)
-        style.getSourceAs<GeoJsonSource>("compare-labels")?.setGeoJson(empty)
-        style.getSourceAs<GeoJsonSource>("guidance-route")?.setGeoJson(data.routeFeatures)
-        style.getSourceAs<GeoJsonSource>("hazards")?.setGeoJson(data.hazardFeatures)
-        style.getSourceAs<GeoJsonSource>("locations")?.setGeoJson(data.locationFeatures)
-        style.getLayer("current-position")?.setProperties(iconRotate(state.heading.toFloat()))
-        MapBuildingVisibility.update(style, data.routes, data.protectedPoints, isDriverView)
+        val previous = renderedGuidance
+        val geometryChanged = previous == null || previous.routeLine != state.routeLine || previous.hazards != state.hazards
+        // 경로·위험 지점은 데이터가 바뀔 때만 갱신하고, 매 프레임의 위치 갱신과 분리한다.
+        if (geometryChanged) {
+            val data = GuidanceMapData(state)
+            if (previous == null) {
+                style.getSourceAs<GeoJsonSource>("compare-routes")?.setGeoJson(empty)
+                style.getSourceAs<GeoJsonSource>("compare-labels")?.setGeoJson(empty)
+            }
+            if (previous == null || previous.routeLine != state.routeLine)
+                style.getSourceAs<GeoJsonSource>("guidance-route")?.setGeoJson(data.routeFeatures)
+            if (previous == null || previous.hazards != state.hazards)
+                style.getSourceAs<GeoJsonSource>("hazards")?.setGeoJson(data.hazardFeatures)
+        }
+        if (geometryChanged || renderedDriverView != isDriverView ||
+            (state.routeLine.isNullOrEmpty() && previous?.myPosition != state.myPosition)) {
+            val data = GuidanceMapData(state)
+            // 경로가 있으면 내 위치 주변도 이미 보호되므로 건물 표현식을 매 프레임 바꾸지 않는다.
+            val protected = if (data.routes.isNotEmpty()) data.protectedPoints.drop(1) else data.protectedPoints
+            MapBuildingVisibility.update(style, data.routes, protected, isDriverView)
+        }
+        val position = motion ?: MapMotion(state.myPosition, state.heading)
+        if (previous == null || previous.routeLine != state.routeLine || !continuousMotion) updatePosition(style, position)
+        renderedGuidance = state
+        renderedComparison = null
+        renderedDriverView = isDriverView
+    }
+
+    private fun updatePosition(style: Style, frame: MapMotion) {
+        val points = buildList {
+            add(Feature.fromGeometry(Point.fromLngLat(frame.position.lng, frame.position.lat)).apply {
+                addStringProperty("label", "내 위치")
+            })
+            guidance?.routeLine?.lastOrNull()?.let { point ->
+                add(Feature.fromGeometry(Point.fromLngLat(point.lng, point.lat)).apply {
+                    addStringProperty("label", "목적지")
+                })
+            }
+        }
+        style.getSourceAs<GeoJsonSource>("locations")?.setGeoJson(FeatureCollection.fromFeatures(points))
+        style.getLayer("current-position")?.setProperties(iconRotate(frame.heading.toFloat()))
+    }
+
+    private fun followPosition(frame: MapMotion) {
+        map?.moveCamera(CameraUpdateFactory.newCameraPosition(
+            CameraPosition.Builder().target(LatLng(frame.position.lat, frame.position.lng))
+                .zoom(15.8).tilt(45.0).bearing(frame.heading)
+                .padding(insets.map { it.toDouble() }.toDoubleArray()).build(),
+        ))
     }
 
     fun resetCamera() {
@@ -152,11 +219,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
         }
         val state = guidance ?: return
         if (isDriverView) {
-            loadedMap.moveCamera(CameraUpdateFactory.newCameraPosition(
-                CameraPosition.Builder().target(LatLng(state.myPosition.lat, state.myPosition.lng))
-                    .zoom(15.8).tilt(45.0).bearing(state.heading)
-                    .padding(insets.map { it.toDouble() }.toDoubleArray()).build(),
-            ))
+            followPosition(motion ?: MapMotion(state.myPosition, state.heading))
         } else {
             fitCoordinates(loadedMap, state.routeLine.orEmpty() + state.hazards.map { it.position } + state.myPosition)
         }
@@ -283,8 +346,8 @@ class MapSurface(context: Context, savedState: Bundle?) {
     }
 
     fun onStart() = view.onStart()
-    fun onResume() = view.onResume()
-    fun onPause() = view.onPause()
+    fun onResume() { resumed = true; view.onResume() }
+    fun onPause() { resumed = false; view.onPause() }
     fun onStop() = view.onStop()
     fun onLowMemory() = view.onLowMemory()
     fun onSaveInstanceState(outState: Bundle) {

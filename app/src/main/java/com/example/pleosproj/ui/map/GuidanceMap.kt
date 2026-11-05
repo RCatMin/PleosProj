@@ -6,6 +6,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,8 +21,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.pleosproj.ui.state.GuidanceState
 
 @Composable
-fun GuidanceMap(surface: MapSurface, state: GuidanceState, modifier: Modifier = Modifier) {
-    LaunchedEffect(state) { surface.render(state) }
+internal fun GuidanceMap(surface: MapSurface, state: GuidanceState, modifier: Modifier = Modifier,
+    motionFrame: (() -> MapMotion)? = null) {
+    LaunchedEffect(surface, state, motionFrame) { surface.render(state, motionFrame != null) }
+    LaunchedEffect(surface, motionFrame) {
+        if (motionFrame != null) while (isActive) {
+            withFrameNanos { surface.renderMotion(motionFrame()) }
+        }
+    }
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         val leftInset = minOf(460.dp, maxWidth * 0.38f)
