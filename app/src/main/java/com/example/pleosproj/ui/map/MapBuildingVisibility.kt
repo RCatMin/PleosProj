@@ -4,6 +4,7 @@ import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression.*
 import org.maplibre.android.style.layers.FillExtrusionLayer
 import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.TransitionOptions
 import org.maplibre.android.style.layers.PropertyFactory.*
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
@@ -24,12 +25,15 @@ internal object MapBuildingVisibility {
         style.addLayer(FillExtrusionLayer(LAYER_ID, "openmaptiles")
             .withSourceLayer("building")
             .withProperties(
-                fillExtrusionColor("#B9B5B0"), fillExtrusionOpacity(0.45f),
+                fillExtrusionColor("#B9B5B0"), fillExtrusionOpacity(0f),
                 fillExtrusionBase(0f), fillExtrusionVerticalGradient(true),
-            ).apply { minZoom = 14f })
+            ).apply {
+                minZoom = MapRenderPolicy.BUILDINGS_MIN_ZOOM.toFloat()
+                fillExtrusionOpacityTransition = TransitionOptions(0, 0)
+            })
     }
 
-    fun update(style: Style, routes: List<List<Point>>, protectedPoints: List<Point>, driverView: Boolean) {
+    fun update(style: Style, routes: List<List<Point>>, protectedPoints: List<Point>) {
         val geometry = FeatureCollection.fromFeatures(
             routes.filter { it.size >= 2 }.map { Feature.fromGeometry(LineString.fromLngLats(it)) } +
                 protectedPoints.map { Feature.fromGeometry(it) },
@@ -43,7 +47,14 @@ internal object MapBuildingVisibility {
         )
         style.getLayerAs<FillExtrusionLayer>(LAYER_ID)?.setProperties(
             fillExtrusionHeight(height),
-            visibility(if (driverView) Property.VISIBLE else Property.NONE),
+        )
+    }
+
+    fun show(style: Style, visible: Boolean) {
+        // 레이아웃 visibility를 토글하면 보호 거리 표현식을 다시 계산하므로 paint만 바꾼다.
+        // opacity 0인 돌출 레이어는 렌더러가 그리기를 생략한다.
+        style.getLayerAs<FillExtrusionLayer>(LAYER_ID)?.setProperties(
+            fillExtrusionOpacity(if (visible) 0.45f else 0f),
         )
     }
 }
