@@ -74,7 +74,7 @@ class ScenarioEngine(
                 riskScore = a.score,
                 riskLevel = a.band.toLevel(),
                 excluded = a.excluded,
-                riskSummary = summary(hazards, atSeconds, a.excluded),
+                riskSummary = summary(route, hazards, atSeconds, a.excluded, a.band.toLevel()),
                 routeLine = route.line.map { it.toGeo() },
                 hazards = hazards.map { uiHazard(it, atSeconds) },
             )
@@ -253,14 +253,33 @@ class ScenarioEngine(
         snow = w.snowing,
     )
 
-    private fun summary(hazards: List<ScenarioHazard>, seconds: Double, excluded: Boolean): String {
+    /**
+     * 경로 카드에 보일 한 줄 요약. 경로 점수와 어긋나지 않게,
+     * 취약 지점뿐 아니라 그 지점을 지날 시각의 날씨로 "보통" 이상인 지점(물 고임·호우 등)도 넣는다 (PLE-27).
+     */
+    private fun summary(
+        route: ScenarioRoute, hazards: List<ScenarioHazard>, seconds: Double, excluded: Boolean, routeLevel: RiskLevel,
+    ): String {
         // 빠진 경로는 지날 시각에 통제되는 곳 때문이므로, 지금 통제 중이 아니면 "통제 예정"으로 쓴다
         val closing = hazards.filter { it.closedFromSeconds != null }
         if (excluded && closing.isNotEmpty()) {
             return closing.joinToString { it.title } + if (closing.all { it.closedAt(seconds) }) " 통제" else " 통제 예정"
         }
-        val risky = hazards.filter { it.vulnerability != Vulnerability.NONE || it.icingZone }
-        return if (risky.isEmpty()) "위험 구간 없음" else risky.joinToString { it.title } + " 지남"
+        val risky = hazards.filter {
+            it.vulnerability != Vulnerability.NONE || it.icingZone || uiHazard(it, passAt(route, it, seconds)).level >= RiskLevel.MEDIUM
+        }
+        return when {
+            risky.isNotEmpty() -> risky.joinToString { it.title } + " 지남"
+            // 위험 지점은 없지만 경로 전체에 비가 강하면 그렇게 말한다
+            routeLevel >= RiskLevel.MEDIUM -> "경로 전체 강한 비"
+            else -> "위험 구간 없음"
+        }
+    }
+
+    /** 출발 시각 [startSeconds]에 떠났을 때 [route]에서 [h] 지점을 지나는 시각 */
+    private fun passAt(route: ScenarioRoute, h: ScenarioHazard, startSeconds: Double): Double {
+        val along = RouteGeometry.project(route.line, h.position).first
+        return startSeconds + route.durationSeconds * along / RouteGeometry.lengthMeters(route.line)
     }
 
     private fun LatLng.toGeo() = GeoPoint(lat, lng)
