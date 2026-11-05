@@ -114,4 +114,24 @@ class ScenarioEngineTest {
     fun `위험 지점마다 음성 경고 문장이 있다`() {
         scenario.hazards.forEach { assertTrue(HazardVoiceAlerts.message(it).contains(it.title)) }
     }
+
+    @Test
+    fun `봉은사로 요약에 물 고임 지점을 넣는다`() {
+        val compare = engine.compare()
+        val bongeunsa = compare.candidates.first { it.id == "bongeunsa" }
+        assertTrue(bongeunsa.riskSummary, bongeunsa.riskSummary.contains("물 고임"))
+        // 통제로 빠진 경로 문구는 그대로
+        assertTrue(compare.candidates.first { it.id == "teheran" }.riskSummary.endsWith("통제 예정"))
+    }
+
+    @Test
+    fun `맑은 날에는 위험 구간 없음으로 둔다`() {
+        val dry = scenario.copy(
+            weather = listOf(WeatherKey(0, 0.0, false, 20.0, com.example.pleosproj.risk.WarningLevel.NONE)),
+            vehicle = listOf(VehicleKey(0, com.example.pleosproj.risk.WiperLevel.OFF)),
+            hazards = scenario.hazards.filter { it.id == "seonjeong-water" },
+        )
+        val summary = ScenarioEngine(dry).compare().candidates.first { it.id == "bongeunsa" }.riskSummary
+        assertEquals("위험 구간 없음", summary)
+    }
 }
