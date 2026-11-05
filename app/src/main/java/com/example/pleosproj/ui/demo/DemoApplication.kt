@@ -18,17 +18,20 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.example.pleosproj.ui.NavigationPreviewHost
 import com.example.pleosproj.ui.NavigationTransition
 import com.example.pleosproj.ui.map.MapSurface
+import com.example.pleosproj.ui.permissions.AccessStatus
+import com.example.pleosproj.ui.permissions.AppAccess
+import com.example.pleosproj.ui.permissions.PermissionCard
 
 private enum class AppPage { HOME, DEMO, PREVIEW }
 private val Ink = Color(0xFF232228)
 
 @Composable
-fun DemoApplication(surface: MapSurface, lifecycle: Lifecycle, speedPermissionGranted: Boolean, onRequestSpeedPermission: () -> Unit) {
+internal fun DemoApplication(surface: MapSurface, lifecycle: Lifecycle, permissions: List<AccessStatus>, onRequestPermission: (AppAccess) -> Unit) {
     var page by remember { mutableStateOf(AppPage.HOME) }
     BackHandler(enabled = page != AppPage.HOME) { page = AppPage.HOME }
     NavigationTransition(page, Modifier.fillMaxSize()) { displayed ->
         when (displayed) {
-            AppPage.HOME -> DemoHome(speedPermissionGranted, onRequestSpeedPermission,
+            AppPage.HOME -> DemoHome(permissions, onRequestPermission,
                 onStart = { page = AppPage.DEMO }, onPreview = { page = AppPage.PREVIEW })
             AppPage.PREVIEW -> NavigationPreviewHost(surface)
             AppPage.DEMO -> {
@@ -59,7 +62,7 @@ fun DemoApplication(surface: MapSurface, lifecycle: Lifecycle, speedPermissionGr
 }
 
 @Composable
-private fun DemoHome(granted: Boolean, onPermission: () -> Unit, onStart: () -> Unit, onPreview: () -> Unit) {
+private fun DemoHome(permissions: List<AccessStatus>, onPermission: (AppAccess) -> Unit, onStart: () -> Unit, onPreview: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Color(0xFFF7F7F8)).padding(52.dp), verticalArrangement = Arrangement.SpaceBetween) {
         Text("SafeRoute", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Ink)
         Column(Modifier.widthIn(max = 1100.dp), verticalArrangement = Arrangement.spacedBy(26.dp)) {
@@ -79,17 +82,6 @@ private fun DemoHome(granted: Boolean, onPermission: () -> Unit, onStart: () -> 
                 }
             }
         }
-        if (granted) Text("차량 속도 권한 허용됨 · 시연은 재생 시간에 맞춰 진행됩니다", fontSize = 21.sp, color = Color(0xFF68666D))
-        else Surface(shape = RoundedCornerShape(18.dp), color = Color.White) {
-            Row(Modifier.fillMaxWidth().padding(24.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("차량 속도 권한을 확인해 주세요", fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
-                    Text("권한을 허용하지 않아도 시간에 맞춰 재생하는 시연은 이용할 수 있습니다", fontSize = 22.sp, lineHeight = 32.sp,
-                        color = Color(0xFF68666D))
-                }
-                TextButton(onClick = onPermission) { Text("권한 확인", fontSize = 24.sp, color = Ink) }
-            }
-        }
+        PermissionCard(permissions, onPermission)
     }
 }
