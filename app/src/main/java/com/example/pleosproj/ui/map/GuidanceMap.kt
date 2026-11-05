@@ -25,8 +25,11 @@ internal fun GuidanceMap(surface: MapSurface, state: GuidanceState, modifier: Mo
     motionFrame: (() -> MapMotion)? = null) {
     LaunchedEffect(surface, state, motionFrame) { surface.render(state, motionFrame != null) }
     LaunchedEffect(surface, motionFrame) {
+        val pacer = MapFramePacer()
         if (motionFrame != null) while (isActive) {
-            withFrameNanos { surface.renderMotion(motionFrame()) }
+            withFrameNanos { time ->
+                if (pacer.shouldRender(time)) surface.renderMotion(motionFrame())
+            }
         }
     }
     BoxWithConstraints(modifier) {
