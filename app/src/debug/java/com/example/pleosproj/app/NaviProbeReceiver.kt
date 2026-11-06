@@ -17,7 +17,7 @@ class NaviProbeReceiver : BroadcastReceiver() {
             in setOf("tts_check", "stt_check", "vehicle_check", "control_check") ->
                 SdkStatusProbe.run(context, cmd, intent.getStringExtra("mode"))
             in setOf("vehicle_watch", "vehicle_wiper", "vehicle_stop") -> VehicleWatchProbe.run(context, cmd)
-            in LiveProbe.commands -> LiveProbe.run(context, cmd)
+            in LiveProbe.commands -> LiveProbe.run(context, cmd, intent.getStringExtra("rain"), intent.getStringExtra("voice"))
             in LocationVoiceProbe.commands ->
                 LocationVoiceProbe.run(context, cmd, intent.getStringExtra("mode"), intent.getStringExtra("text"))
             else -> NaviProbe.run(cmd, intent.getStringExtra("keyword"))
