@@ -28,6 +28,8 @@ data class NaviTrafficEvent(val lat: Double, val lng: Double, val kind: HazardKi
 
 /** NaviHelper에서 받은 값을 모은 한 시점의 상태 */
 data class NaviSnapshot(
+    /** 기본 내비에게서 목적지 정보를 한 번이라도 받았는지. 받기 전에는 안내 중인지 아닌지 모른다 */
+    val known: Boolean = false,
     /** 기본 내비가 경로 안내 중인지 */
     val guiding: Boolean = false,
     val destinationName: String = "",

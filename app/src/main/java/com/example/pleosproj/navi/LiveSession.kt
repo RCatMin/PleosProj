@@ -81,6 +81,9 @@ class LiveSession(
         }
     }
 
+    /** 기본 내비가 요청에 답하고 있는지. 연결 전이면 null, 오래 답이 없으면 false (화면에 오류를 보일 때 쓴다) */
+    val naviResponding: Boolean? get() = navi.responding
+
     fun start() {
         if (!navi.start()) Log.w(TAG, "기본 내비 연결 없이 시작")
         voice = GuidanceVoice(context).also { it.enabled = pendingVoiceEnabled }
@@ -109,6 +112,9 @@ class LiveSession(
 
     private fun emit() {
         val n = navi.snapshot
+        // 기본 내비가 아직 답하지 않았으면 안내 중인지 모르므로 "안내 없음"을 보내지 않는다.
+        // 오래 답이 없을 때만 안내 없음으로 본다
+        if (!n.known && navi.responding != false) return
         if (!n.guiding || n.turns.isEmpty()) {
             voice?.onState(null)
             onState(null)

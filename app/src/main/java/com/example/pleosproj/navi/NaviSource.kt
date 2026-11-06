@@ -21,6 +21,7 @@ import ai.pleos.playground.navi.helper.listener.NaviHelperEventListener
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 
 /**
@@ -40,22 +41,49 @@ class NaviSource(context: Context, private val onChange: (NaviSnapshot) -> Unit)
         private set
 
     private fun update(change: NaviSnapshot.() -> NaviSnapshot) {
+        lastResponseAt = SystemClock.elapsedRealtime()
+        warnedSilent = false
         val next = synchronized(this) { snapshot.change().also { snapshot = it } }
         main.post { onChange(next) }
     }
 
+    /** 연결이 끝난 시각. 연결 전에 보낸 요청은 버려지므로 그 뒤부터 요청한다 */
+    @Volatile private var connectedAt = 0L
+    @Volatile private var lastResponseAt = 0L
+
+    /**
+     * 기본 내비가 요청에 답하고 있는지. 연결 전이면 null.
+     * 연결 뒤 [SILENT_MILLIS] 넘게 아무 답이 없으면 false다. 기본 내비 앱이 요청을 받고도 답하지 않는 상태가
+     * 에뮬레이터에서 있었고(11/6), 이때는 기본 내비 앱을 다시 띄워야 풀린다.
+     */
+    val responding: Boolean?
+        get() {
+            if (connectedAt == 0L) return null
+            return SystemClock.elapsedRealtime() - maxOf(connectedAt, lastResponseAt) < SILENT_MILLIS
+        }
+
+    private var warnedSilent = false
+
     private val poll = object : Runnable {
         override fun run() {
             val h = helper ?: return
-            runCatching {
-                h.getDestinationInfo()
-                h.getCurrentLocationInfo()
-                if (ticks % 5 == 0) {
-                    h.getTBTInfo()
-                    h.getRouteStateInfo()
+            if (connectedAt != 0L) {
+                runCatching {
+                    h.getDestinationInfo()
+                    h.getCurrentLocationInfo()
+                    // 안내 중인데 회전 안내가 아직 없으면 바로 다시 받는다
+                    val needTurns = snapshot.guiding && snapshot.turns.isEmpty()
+                    if (ticks % 5 == 0 || needTurns) {
+                        h.getTBTInfo()
+                        h.getRouteStateInfo()
+                    }
+                }.onFailure { Log.w(TAG, "NaviHelper 요청 실패: ${it.message}") }
+                ticks++
+                if (responding == false && !warnedSilent) {
+                    warnedSilent = true
+                    Log.w(TAG, "기본 내비가 ${SILENT_MILLIS / 1000}초 넘게 응답하지 않음. 기본 내비 앱을 다시 띄워야 할 수 있다")
                 }
-            }.onFailure { Log.w(TAG, "NaviHelper 요청 실패: ${it.message}") }
-            ticks++
+            }
             main.postDelayed(this, 2_000)
         }
     }
@@ -65,12 +93,21 @@ class NaviSource(context: Context, private val onChange: (NaviSnapshot) -> Unit)
         if (helper != null) return true
         return runCatching {
             NaviHelper(appContext).also {
-                it.initialize()
+                it.initialize(
+                    {
+                        // 연결되자마자 지금 상태를 한 번에 받는다
+                        connectedAt = SystemClock.elapsedRealtime()
+                        Log.i(TAG, "NaviHelper 연결")
+                        main.removeCallbacks(poll)
+                        ticks = 0
+                        main.post(poll)
+                    },
+                    { e -> Log.e(TAG, "NaviHelper 연결 실패", e) },
+                )
                 it.addListener(this)
                 helper = it
             }
             main.post(poll)
-            Log.i(TAG, "NaviHelper 연결")
         }.onFailure { Log.e(TAG, "NaviHelper 초기화 실패", it) }.isSuccess
     }
 
@@ -78,6 +115,8 @@ class NaviSource(context: Context, private val onChange: (NaviSnapshot) -> Unit)
         main.removeCallbacks(poll)
         helper?.let { runCatching { it.removeListener(this); it.release() } }
         helper = null
+        connectedAt = 0L
+        warnedSilent = false
     }
 
     // --- NaviHelper 콜백 ---
@@ -96,7 +135,7 @@ class NaviSource(context: Context, private val onChange: (NaviSnapshot) -> Unit)
         helper?.getRouteStateInfo()
     }
 
-    override fun onRouteCancelled() = update { NaviSnapshot() }
+    override fun onRouteCancelled() = update { NaviSnapshot(known = true) }
 
     override fun onDestinationArrived(destinationArrivedInfo: DestinationArrivedInfo) =
         update { copy(guiding = false, remainMeters = 0, remainSeconds = 0) }
@@ -104,8 +143,9 @@ class NaviSource(context: Context, private val onChange: (NaviSnapshot) -> Unit)
     override fun onDestinationInfo(destinationInfo: DestinationInfo) = update {
         val d = destinationInfo
         // 안내 중이 아니면 이름이 비어 있고 좌표가 0으로 온다
-        if (d.name.isBlank()) copy(guiding = false)
+        if (d.name.isBlank()) copy(known = true, guiding = false)
         else copy(
+            known = true,
             guiding = true,
             destinationName = d.name,
             destinationLat = d.latitude,
@@ -165,5 +205,6 @@ class NaviSource(context: Context, private val onChange: (NaviSnapshot) -> Unit)
 
     private companion object {
         const val TAG = "NaviSource"
+        const val SILENT_MILLIS = 10_000L
     }
 }
