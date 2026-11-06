@@ -26,6 +26,7 @@ android {
 
         buildConfigField("String", "KMA_SERVICE_KEY", localKey("KMA_FORECAST_KEY"))
         buildConfigField("String", "ITS_API_KEY", localKey("ITS_API_KEY"))
+        buildConfigField("String", "KAKAO_REST_KEY", localKey("KAKAO_REST_KEY"))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
