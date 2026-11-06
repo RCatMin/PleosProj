@@ -44,7 +44,7 @@ class AlertSpeechTest {
         s.next(underpass)
         val closure = HazardAlert("its-0", "앞쪽 도로 통제", "900m 앞 도로 통제, 우회할까요?", RiskLevel.HIGH, suggestsDetour = true)
         val u = s.next(closure)!!
-        assertEquals("앞쪽 도로 통제. 900미터 앞 도로 통제, 우회할까요?", u.text)
+        assertEquals("900미터 앞 도로 구간이 통제되어 있습니다. 우회할까요?", u.text)
         assertTrue(u.flush)
     }
 
@@ -54,9 +54,11 @@ class AlertSpeechTest {
     }
 
     @Test
-    fun `단위를 읽기 좋게 바꾼다`() {
-        val rain = HazardAlert("weather-here", "지금 위치 강한 비", "시간당 45mm, 와이퍼 최고 단계. 속도를 줄이세요", RiskLevel.MEDIUM, false)
-        assertEquals("지금 위치 강한 비. 시간당 45밀리미터, 와이퍼 최고 단계. 속도를 줄이세요", AlertSpeech.sentence(rain))
-        assertEquals("앞쪽 침수 우려. 800미터 앞 지하차도", AlertSpeech.sentence(underpass))
+    fun `운전자에게 말하듯 존댓말 문장으로 바꾼다`() {
+        assertEquals("800미터 앞 지하차도에 침수 우려가 있습니다. 속도를 줄여 주세요.", AlertSpeech.sentence(underpass))
+        val rain = HazardAlert("weather-here", "지금 위치 강한 비", "시간당 45mm, 특보(경보) 발표 중. 속도를 줄이세요", RiskLevel.MEDIUM, false)
+        assertEquals("지금 시간당 45밀리미터의 강한 비가 내리고 있습니다. 속도를 줄여 주세요.", AlertSpeech.sentence(rain))
+        val ice = HazardAlert("caution-c1", "앞쪽 미끄럼 주의", "600m 앞 미끄러운 도로", RiskLevel.MEDIUM, false)
+        assertEquals("600미터 앞 미끄러운 도로입니다. 길이 미끄러우니 천천히 가 주세요.", AlertSpeech.sentence(ice))
     }
 }

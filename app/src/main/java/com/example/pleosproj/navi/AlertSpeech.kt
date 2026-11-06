@@ -31,12 +31,29 @@ class AlertSpeech {
     }
 
     companion object {
-        /** 화면 문구를 읽기 좋게 바꾼다. "800m 앞" → "800미터 앞", "45mm" → "45밀리미터" */
+        private val ahead = Regex("""^(\d+)m 앞 ([^,]+)""")
+        private val rain = Regex("""(\d+)mm""")
+
+        /**
+         * 화면 문구를 그대로 읽으면 딱딱하므로, 운전자에게 말하듯 끝까지 존댓말 문장으로 바꾼다.
+         * 예: "앞쪽 침수 우려 / 800m 앞 지하차도" → "800미터 앞 지하차도에 침수 우려가 있습니다. 속도를 줄여 주세요."
+         */
         fun sentence(alert: HazardAlert): String {
-            val message = alert.message
-                .replace(Regex("(\\d+)mm")) { "${it.groupValues[1]}밀리미터" }
-                .replace(Regex("(\\d+)m(?![a-z])")) { "${it.groupValues[1]}미터" }
-            return "${alert.title}. $message"
+            val m = ahead.find(alert.message)
+            val where = m?.let { "${it.groupValues[1]}미터 앞 ${it.groupValues[2].trim()}" }
+            return when {
+                // "도로 통제", "테헤란로 통제"처럼 이름에 이미 "통제"가 붙어 있으면 떼고 말한다
+                alert.suggestsDetour && m != null ->
+                    "${m.groupValues[1]}미터 앞 ${m.groupValues[2].trim().removeSuffix("통제").trim().ifEmpty { "도로" }} 구간이 통제되어 있습니다. 우회할까요?"
+                where != null && alert.title.contains("침수") -> "${where}에 침수 우려가 있습니다. 속도를 줄여 주세요."
+                where != null && alert.title.contains("미끄럼") -> "${where}입니다. 길이 미끄러우니 천천히 가 주세요."
+                where != null && alert.title.contains("안개") -> "${where}입니다. 앞차와 거리를 넉넉히 두세요."
+                where != null -> "${where}입니다. 주의해서 지나가 주세요."
+                alert.title.contains("눈") -> "지금 눈이 내리고 있습니다. 속도를 줄여 주세요."
+                rain.containsMatchIn(alert.message) ->
+                    "지금 시간당 ${rain.find(alert.message)!!.groupValues[1]}밀리미터의 강한 비가 내리고 있습니다. 속도를 줄여 주세요."
+                else -> "${alert.title}입니다. 주의해 주세요."
+            }
         }
     }
 }
