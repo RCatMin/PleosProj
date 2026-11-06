@@ -17,6 +17,8 @@ data class RoutePlan(
     val line: List<LatLng>,
     val turns: List<RouteTurn>,
     val tollWon: Int = 0,
+    /** 지나는 길 이름과 그 길을 달리는 거리(m). 후보 경로끼리 구별되는 이름을 붙일 때 쓴다 */
+    val roads: Map<String, Double> = emptyMap(),
 )
 
 /** 회전 지점. [atMeters]는 경로 출발점부터 경로선을 따라 잰 거리 */

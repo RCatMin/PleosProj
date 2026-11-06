@@ -40,7 +40,10 @@ object OsrmParser {
             }
             walked += s.getDouble("distance")
         }
-        turns += RouteTurn(RouteGeometry.lengthMeters(line), TurnKind.ARRIVE, "목적지")
+        val total = RouteGeometry.lengthMeters(line)
+        // 목적지가 길 건너편이라 도착 직전에 생기는 유턴은 안내하지 않는다
+        turns.removeAll { it.kind == TurnKind.U_TURN && total - it.atMeters < 200 }
+        turns += RouteTurn(total, TurnKind.ARRIVE, "목적지")
         return RoutePlan(
             id = id,
             name = mainRoad(steps)?.let { "$it 경유" } ?: "추천 경로",
@@ -48,6 +51,9 @@ object OsrmParser {
             durationSeconds = r.getDouble("duration").toInt(),
             line = line,
             turns = turns,
+            roads = steps.filter { it.optString("name").isNotBlank() }
+                .groupBy { it.optString("name") }
+                .mapValues { (_, s) -> s.sumOf { it.getDouble("distance") } },
         )
     }
 
