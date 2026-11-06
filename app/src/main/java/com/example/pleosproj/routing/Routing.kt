@@ -27,6 +27,10 @@ data class RoutePlanResult(
     val routes: List<RoutePlan>,
     /** 날씨를 못 받아 비 없이 계산했는지 */
     val weatherMissing: Boolean,
+    /** 안내 중에도 쓰는 위험 지점과 날씨 (다시 받지 않는다) */
+    val hazards: List<RiskPoint> = emptyList(),
+    val weather: WeatherAlong = WeatherAlong { _, _ -> WeatherSample(0.0, false, 15.0, WarningLevel.NONE) },
+    val plannedAt: LocalDateTime = LocalDateTime.now(),
 )
 
 /**
@@ -74,8 +78,9 @@ class Routing(
         val t0 = System.currentTimeMillis()
         val (weather, missing) = weatherAlong(candidates, now)
         debug("날씨: ${System.currentTimeMillis() - t0}ms")
-        val state = comparer.compare(destinationName, candidates, riskPoints(candidates), weather, vehicle)
-        return RoutePlanResult(state, candidates, missing)
+        val hazards = riskPoints(candidates)
+        val state = comparer.compare(destinationName, candidates, hazards, weather, vehicle)
+        return RoutePlanResult(state, candidates, missing, hazards, weather, now)
     }
 
     // --- 후보 경로 ---
