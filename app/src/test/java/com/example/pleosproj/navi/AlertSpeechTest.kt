@@ -61,4 +61,10 @@ class AlertSpeechTest {
         val ice = HazardAlert("caution-c1", "앞쪽 미끄럼 주의", "600m 앞 미끄러운 도로", RiskLevel.MEDIUM, false)
         assertEquals("600미터 앞 미끄러운 도로입니다. 길이 미끄러우니 천천히 가 주세요.", AlertSpeech.sentence(ice))
     }
+
+    @Test
+    fun `1km가 넘으면 킬로미터로 읽는다`() {
+        val water = HazardAlert("seonjeong-water", "앞쪽 위험 구간", "1100m 앞 선정릉역 부근 물 고임", RiskLevel.MEDIUM, false)
+        assertEquals("1.1킬로미터 앞 선정릉역 부근 물 고임입니다. 주의해서 지나가 주세요.", AlertSpeech.sentence(water))
+    }
 }

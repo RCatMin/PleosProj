@@ -40,11 +40,11 @@ class AlertSpeech {
          */
         fun sentence(alert: HazardAlert): String {
             val m = ahead.find(alert.message)
-            val where = m?.let { "${it.groupValues[1]}미터 앞 ${it.groupValues[2].trim()}" }
+            val where = m?.let { "${TurnSpeech.distance(it.groupValues[1].toInt())} 앞 ${it.groupValues[2].trim()}" }
             return when {
                 // "도로 통제", "테헤란로 통제"처럼 이름에 이미 "통제"가 붙어 있으면 떼고 말한다
                 alert.suggestsDetour && m != null ->
-                    "${m.groupValues[1]}미터 앞 ${m.groupValues[2].trim().removeSuffix("통제").trim().ifEmpty { "도로" }} 구간이 통제되어 있습니다. 우회할까요?"
+                    "${TurnSpeech.distance(m.groupValues[1].toInt())} 앞 ${m.groupValues[2].trim().removeSuffix("통제").trim().ifEmpty { "도로" }} 구간이 통제되어 있습니다. 우회할까요?"
                 where != null && alert.title.contains("침수") -> "${where}에 침수 우려가 있습니다. 속도를 줄여 주세요."
                 where != null && alert.title.contains("미끄럼") -> "${where}입니다. 길이 미끄러우니 천천히 가 주세요."
                 where != null && alert.title.contains("안개") -> "${where}입니다. 앞차와 거리를 넉넉히 두세요."

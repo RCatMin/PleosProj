@@ -13,8 +13,6 @@ import com.example.pleosproj.traffic.TrafficEvent
 import com.example.pleosproj.ui.state.GuidanceState
 import com.example.pleosproj.vehicle.VehicleSignalReader
 import com.example.pleosproj.vehicle.VehicleSnapshot
-import com.example.pleosproj.voice.VoiceOutput
-import com.example.pleosproj.voice.Voices
 import com.example.pleosproj.weather.KmaClient
 import com.example.pleosproj.weather.KmaGrid
 import com.example.pleosproj.weather.PrecipType
@@ -30,19 +28,21 @@ import java.util.concurrent.TimeUnit
  * 기상청·ITS를 주기적으로 불러서, 1초마다 [LiveGuidance]로 안내 화면 상태를 만든다.
  *
  * 기본 내비가 안내 중이 아니면 [onState]에 null을 넘긴다. 네트워크가 안 되면 마지막으로 받은 날씨·교통 값을 계속 쓴다.
- * 새 위험 알림은 음성으로도 한 번 말한다 (PLE-31).
+ * 회전 안내와 새 위험 알림은 음성으로도 말한다 (PLE-31, [GuidanceVoice]).
  * 메인 스레드에서 만들고 부른다.
  */
 class LiveSession(
     private val context: Context,
     private val onState: (GuidanceState?) -> Unit,
 ) {
-    /** 위험 알림을 음성으로 말할지. 화면의 "음성 켜짐" 버튼과 연결한다 */
-    var voiceEnabled = true
+    /** 안내 음성(회전 안내·위험 경고)을 낼지. 화면의 "음성 켜짐" 버튼과 연결한다 */
+    var voiceEnabled: Boolean
+        get() = voice?.enabled ?: pendingVoiceEnabled
         set(value) {
-            field = value
-            if (!value) voice?.stop()
+            pendingVoiceEnabled = value
+            voice?.enabled = value
         }
+    private var pendingVoiceEnabled = true
 
     /**
      * 확인·시연용: 값이 있으면 지금 위치에 시간당 이만큼 비가 온다고 본다. 맑은 날에도 실제 주행 경고를 보여 줄 때 쓴다.
@@ -50,8 +50,7 @@ class LiveSession(
      */
     var simulatedRainMm: Double? = null
 
-    private var voice: VoiceOutput? = null
-    private val speech = AlertSpeech()
+    private var voice: GuidanceVoice? = null
 
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadScheduledExecutor()
@@ -84,10 +83,7 @@ class LiveSession(
 
     fun start() {
         if (!navi.start()) Log.w(TAG, "기본 내비 연결 없이 시작")
-        Voices.output(context) { v ->
-            // 음성 준비가 끝나기 전에 세션이 멈췄으면 바로 해제한다
-            if (stopped) v.release() else voice = v
-        }
+        voice = GuidanceVoice(context).also { it.enabled = pendingVoiceEnabled }
         locations.start(object : LocationListener {
             override fun onLocation(fix: LocationFix) { this@LiveSession.fix = fix }
         })
@@ -101,10 +97,7 @@ class LiveSession(
         main.post(tick)
     }
 
-    private var stopped = false
-
     fun stop() {
-        stopped = true
         voice?.release()
         voice = null
         main.removeCallbacks(tick)
@@ -117,7 +110,7 @@ class LiveSession(
     private fun emit() {
         val n = navi.snapshot
         if (!n.guiding || n.turns.isEmpty()) {
-            speech.next(null)
+            voice?.onState(null)
             onState(null)
             return
         }
@@ -146,8 +139,7 @@ class LiveSession(
                 ),
             )
         onState(state)
-        // 음성이 꺼져 있어도 판단은 계속해서, 켰을 때 지난 알림을 몰아서 말하지 않게 한다
-        speech.next(state.alert)?.let { if (voiceEnabled) voice?.speak(it.text, it.flush) }
+        voice?.onState(state)
     }
 
     private fun simulatedWeather(): WeatherNow? {
