@@ -21,7 +21,6 @@ class NaviProbeReceiver : BroadcastReceiver() {
             in RoutingProbe.commands ->
                 RoutingProbe.run(intent.getStringExtra("from"), intent.getStringExtra("to"), intent.getStringExtra("name"))
             in DemoVoiceProbe.commands -> DemoVoiceProbe.run(context, cmd, intent.getStringExtra("speed"))
-            in LiveProbe.commands -> LiveProbe.run(context, cmd, intent.getStringExtra("rain"), intent.getStringExtra("voice"))
             in LocationVoiceProbe.commands ->
                 LocationVoiceProbe.run(context, cmd, intent.getStringExtra("mode"), intent.getStringExtra("text"))
             else -> NaviProbe.run(cmd, intent.getStringExtra("keyword"))
