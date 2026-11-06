@@ -4,7 +4,6 @@ import android.util.Log
 import com.example.pleosproj.BuildConfig
 import com.example.pleosproj.traffic.ItsClient
 import com.example.pleosproj.weather.KmaClient
-import com.example.pleosproj.navi.LiveGuidance
 import com.example.pleosproj.risk.LatLng
 import com.example.pleosproj.risk.RouteGeometry
 import com.example.pleosproj.risk.VehicleSignals
@@ -132,7 +131,7 @@ class Routing(
                 emptyList()
             }
         }
-        val level = warnings?.let { w -> runCatching { LiveGuidance.warningLevel(w()) }.getOrDefault(WarningLevel.NONE) } ?: WarningLevel.NONE
+        val level = warnings?.let { w -> runCatching { Warnings.level(w()) }.getOrDefault(WarningLevel.NONE) } ?: WarningLevel.NONE
         val along = WeatherAlong { point, seconds ->
             val time = now.plusSeconds(seconds.toLong())
             val f = byGrid[KmaGrid.fromLatLng(point.lat, point.lng)].orEmpty()
@@ -142,7 +141,7 @@ class Routing(
                 rainMmPerHour = f.rainMm,
                 snowing = f.precip.hasSnow,
                 temperatureC = f.temperatureC,
-                // 특보 목록은 전국 단위라 그 지점에 비·눈이 올 때만 반영한다 (LiveGuidance와 같은 규칙)
+                // 특보 목록은 전국 단위라 그 지점에 비·눈이 올 때만 반영한다
                 warning = if (f.rainMm > 0 || f.precip.hasSnow) level else WarningLevel.NONE,
             )
         }
