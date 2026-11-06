@@ -7,7 +7,8 @@ import com.example.pleosproj.ui.state.GuidanceState
 
 /**
  * 디버그 전용 확인 도구 (PLE-29): 실제 주행 세션이 만든 안내 화면 상태를 5초마다 로그로 남긴다.
- * `adb logcat -s LiveProbe LiveSession NaviSource`로 본다.
+ * `--es rain 45`를 주면 지금 위치에 시간당 45mm 비가 온다고 보고, `--es voice off`면 음성을 끈다.
+ * `adb logcat -s LiveProbe LiveSession NaviSource Voices`로 본다.
  */
 object LiveProbe {
 
@@ -17,13 +18,17 @@ object LiveProbe {
 
     val commands = setOf("live_start", "live_stop")
 
-    fun run(context: Context, cmd: String) {
+    fun run(context: Context, cmd: String, rain: String? = null, voice: String? = null) {
         Log.i(TAG, ">> $cmd")
         session?.stop()
         session = null
         if (cmd == "live_start") {
             count = 0
-            session = LiveSession(context) { state -> if (count++ % 5 == 0) log(state) }.also { it.start() }
+            session = LiveSession(context) { state -> if (count++ % 5 == 0) log(state) }.also {
+                it.simulatedRainMm = rain?.toDoubleOrNull()
+                it.voiceEnabled = voice != "off"
+                it.start()
+            }
         }
     }
 

@@ -17,9 +17,16 @@ class PleosVoiceOutput private constructor(private val tts: TextToSpeech) : Voic
 
     private val main = Handler(Looper.getMainLooper())
 
-    // Pleos TTS는 초기화 콜백 안이나 다른 스레드에서 부르면 조용히 무시될 때가 있어 메인 스레드로 넘긴다
+    // Pleos TTS는 초기화 콜백 안이나 다른 스레드에서 부르면 조용히 무시될 때가 있어 메인 스레드로 넘긴다.
+    // speak()의 두 번째 값은 "이 문장이 끝인지(isFinal)"다. false로 보내면 다음 문장을 기다리며 말하지 않으므로
+    // 항상 true로 보내고, 끊어야 할 때는 먼저 stop()을 부른다
     override fun speak(text: String, flush: Boolean) {
-        main.post { runCatching { tts.speak(text, flush) }.onFailure { Log.e(TAG, "speak 실패", it) } }
+        main.post {
+            runCatching {
+                if (flush) tts.stop()
+                tts.speak(text, true)
+            }.onFailure { Log.e(TAG, "speak 실패", it) }
+        }
     }
 
     override fun stop() {

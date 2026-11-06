@@ -15,6 +15,7 @@ import com.example.pleosproj.vehicle.VehicleSignalReader
 import com.example.pleosproj.vehicle.VehicleSnapshot
 import com.example.pleosproj.weather.KmaClient
 import com.example.pleosproj.weather.KmaGrid
+import com.example.pleosproj.weather.PrecipType
 import com.example.pleosproj.weather.WeatherForecast
 import com.example.pleosproj.weather.WeatherNow
 import com.example.pleosproj.weather.WeatherWarning
@@ -27,12 +28,30 @@ import java.util.concurrent.TimeUnit
  * 기상청·ITS를 주기적으로 불러서, 1초마다 [LiveGuidance]로 안내 화면 상태를 만든다.
  *
  * 기본 내비가 안내 중이 아니면 [onState]에 null을 넘긴다. 네트워크가 안 되면 마지막으로 받은 날씨·교통 값을 계속 쓴다.
+ * 회전 안내와 새 위험 알림은 음성으로도 말한다 (PLE-31, [GuidanceVoice]).
  * 메인 스레드에서 만들고 부른다.
  */
 class LiveSession(
-    context: Context,
+    private val context: Context,
     private val onState: (GuidanceState?) -> Unit,
 ) {
+    /** 안내 음성(회전 안내·위험 경고)을 낼지. 화면의 "음성 켜짐" 버튼과 연결한다 */
+    var voiceEnabled: Boolean
+        get() = voice?.enabled ?: pendingVoiceEnabled
+        set(value) {
+            pendingVoiceEnabled = value
+            voice?.enabled = value
+        }
+    private var pendingVoiceEnabled = true
+
+    /**
+     * 확인·시연용: 값이 있으면 지금 위치에 시간당 이만큼 비가 온다고 본다. 맑은 날에도 실제 주행 경고를 보여 줄 때 쓴다.
+     * null이면 기상청 값을 그대로 쓴다.
+     */
+    var simulatedRainMm: Double? = null
+
+    private var voice: GuidanceVoice? = null
+
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadScheduledExecutor()
 
@@ -64,6 +83,7 @@ class LiveSession(
 
     fun start() {
         if (!navi.start()) Log.w(TAG, "기본 내비 연결 없이 시작")
+        voice = GuidanceVoice(context).also { it.enabled = pendingVoiceEnabled }
         locations.start(object : LocationListener {
             override fun onLocation(fix: LocationFix) { this@LiveSession.fix = fix }
         })
@@ -78,6 +98,8 @@ class LiveSession(
     }
 
     fun stop() {
+        voice?.release()
+        voice = null
         main.removeCallbacks(tick)
         io.shutdownNow()
         navi.stop()
@@ -88,6 +110,7 @@ class LiveSession(
     private fun emit() {
         val n = navi.snapshot
         if (!n.guiding || n.turns.isEmpty()) {
+            voice?.onState(null)
             onState(null)
             return
         }
@@ -100,8 +123,7 @@ class LiveSession(
         }
         routeTotal = maxOf(routeTotal, n.routeMeters)
         val f = fix
-        onState(
-            LiveGuidance.build(
+        val state = LiveGuidance.build(
                 LiveInputs(
                     navi = n,
                     now = LocalDateTime.now(),
@@ -109,14 +131,23 @@ class LiveSession(
                     myLat = f?.lat,
                     myLng = f?.lng,
                     myHeading = f?.heading?.toDouble(),
-                    weatherHere = weatherHere,
+                    weatherHere = simulatedWeather(),
                     forecastAtDestination = forecastDest,
                     warnings = warnings,
                     trafficEvents = events,
                     vehicle = vehicle,
                 ),
-            ),
-        )
+            )
+        onState(state)
+        voice?.onState(state)
+    }
+
+    private fun simulatedWeather(): WeatherNow? {
+        val rain = simulatedRainMm ?: return weatherHere
+        val base = weatherHere ?: here()?.let { (lat, lng) ->
+            WeatherNow(KmaGrid.fromLatLng(lat, lng), LocalDateTime.now(), 20.0, 0.0, PrecipType.NONE, 80, 2.0)
+        } ?: return null
+        return base.copy(rainMm = rain, precip = if (rain > 0) PrecipType.RAIN else PrecipType.NONE)
     }
 
     // --- 네트워크 (io 스레드) ---
