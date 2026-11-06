@@ -68,6 +68,11 @@ class GuidanceVoice internal constructor(start: ((VoiceOutput) -> Unit) -> Unit)
         turn?.let { voice?.speak(it.text, flush = false) }
     }
 
+    /** 정해진 문장을 바로 말한다 (도착, 재탐색 같은 알림). 음성이 준비되기 전이면 말하지 않는다 */
+    fun announce(text: String, flush: Boolean = true) {
+        if (enabled && !released) voice?.speak(text, flush)
+    }
+
     /** 출발 전 브리핑을 읽는다. 음성이 아직 준비 중이면 준비되는 대로 한 번 읽는다 */
     fun speakBriefing(b: BriefingState) {
         if (!enabled || released) return

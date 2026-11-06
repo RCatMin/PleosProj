@@ -4,7 +4,6 @@ import android.util.Log
 import com.example.pleosproj.BuildConfig
 import com.example.pleosproj.traffic.ItsClient
 import com.example.pleosproj.weather.KmaClient
-import com.example.pleosproj.navi.LiveGuidance
 import com.example.pleosproj.risk.LatLng
 import com.example.pleosproj.risk.RouteGeometry
 import com.example.pleosproj.risk.VehicleSignals
@@ -27,6 +26,10 @@ data class RoutePlanResult(
     val routes: List<RoutePlan>,
     /** 날씨를 못 받아 비 없이 계산했는지 */
     val weatherMissing: Boolean,
+    /** 안내 중에도 쓰는 위험 지점과 날씨 (다시 받지 않는다) */
+    val hazards: List<RiskPoint> = emptyList(),
+    val weather: WeatherAlong = WeatherAlong { _, _ -> WeatherSample(0.0, false, 15.0, WarningLevel.NONE) },
+    val plannedAt: LocalDateTime = LocalDateTime.now(),
 )
 
 /**
@@ -74,8 +77,9 @@ class Routing(
         val t0 = System.currentTimeMillis()
         val (weather, missing) = weatherAlong(candidates, now)
         debug("날씨: ${System.currentTimeMillis() - t0}ms")
-        val state = comparer.compare(destinationName, candidates, riskPoints(candidates), weather, vehicle)
-        return RoutePlanResult(state, candidates, missing)
+        val hazards = riskPoints(candidates)
+        val state = comparer.compare(destinationName, candidates, hazards, weather, vehicle)
+        return RoutePlanResult(state, candidates, missing, hazards, weather, now)
     }
 
     // --- 후보 경로 ---
@@ -127,7 +131,7 @@ class Routing(
                 emptyList()
             }
         }
-        val level = warnings?.let { w -> runCatching { LiveGuidance.warningLevel(w()) }.getOrDefault(WarningLevel.NONE) } ?: WarningLevel.NONE
+        val level = warnings?.let { w -> runCatching { Warnings.level(w()) }.getOrDefault(WarningLevel.NONE) } ?: WarningLevel.NONE
         val along = WeatherAlong { point, seconds ->
             val time = now.plusSeconds(seconds.toLong())
             val f = byGrid[KmaGrid.fromLatLng(point.lat, point.lng)].orEmpty()
@@ -137,7 +141,7 @@ class Routing(
                 rainMmPerHour = f.rainMm,
                 snowing = f.precip.hasSnow,
                 temperatureC = f.temperatureC,
-                // 특보 목록은 전국 단위라 그 지점에 비·눈이 올 때만 반영한다 (LiveGuidance와 같은 규칙)
+                // 특보 목록은 전국 단위라 그 지점에 비·눈이 올 때만 반영한다
                 warning = if (f.rainMm > 0 || f.precip.hasSnow) level else WarningLevel.NONE,
             )
         }
