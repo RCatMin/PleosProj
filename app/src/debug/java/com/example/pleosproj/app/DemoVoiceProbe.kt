@@ -32,9 +32,9 @@ object DemoVoiceProbe {
             v.onState(state)
             if (seconds.toInt() % 30 == 0) Log.i(TAG, "<< %.0f초 다음 %s %dm".format(seconds, state.nextTurn?.text, state.nextTurn?.distanceMeters))
         }.also { player = it }
-        // 음성 준비를 기다렸다가 브리핑을 읽고, 다 읽을 즈음 재생한다
-        val main = Handler(Looper.getMainLooper())
-        main.postDelayed({ v.speakBriefing(p.engine.briefing()) }, 2_000)
-        main.postDelayed({ p.play() }, 14_000)
+        // 음성 준비를 기다리지 않고 바로 브리핑을 요청한다 (준비되면 GuidanceVoice가 읽는다, PLE-32).
+        // 브리핑을 다 읽을 즈음 재생한다
+        v.speakBriefing(p.engine.briefing())
+        Handler(Looper.getMainLooper()).postDelayed({ p.play() }, 12_000)
     }
 }

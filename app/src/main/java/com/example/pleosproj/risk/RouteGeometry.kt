@@ -100,17 +100,34 @@ object RouteGeometry {
 
     /**
      * 점을 경로선에 가장 가깝게 붙였을 때, 출발점부터의 거리와 경로까지의 거리를 돌려준다.
-     * 경로선 꼭짓점 사이를 20m 간격으로 훑는 단순한 방식이라 시나리오 크기에서만 쓴다.
+     * 경로선 구간마다 한 번씩만 본다(짧은 구간이라 평면으로 계산해도 오차가 작다).
+     * [stepMeters]는 예전 방식과의 호환용으로 남겨 두고 쓰지 않는다.
      */
+    @Suppress("UNUSED_PARAMETER")
     fun project(line: List<LatLng>, point: LatLng, stepMeters: Double = 20.0): Pair<Double, Double> {
-        val total = lengthMeters(line)
+        if (line.size < 2) return 0.0 to (line.firstOrNull()?.let { distanceMeters(it, point) } ?: Double.MAX_VALUE)
+        // 위도 1도·경도 1도가 몇 m인지 (이 지점 기준)
+        val mPerLat = 111_320.0
+        val mPerLng = 111_320.0 * cos(Math.toRadians(point.lat))
+        var walked = 0.0
         var best = 0.0
         var bestDist = Double.MAX_VALUE
-        var m = 0.0
-        while (m <= total) {
-            val d = distanceMeters(pointAt(line, m), point)
-            if (d < bestDist) { bestDist = d; best = m }
-            m += stepMeters
+        for ((a, b) in line.zipWithNext()) {
+            val bx = (b.lng - a.lng) * mPerLng
+            val by = (b.lat - a.lat) * mPerLat
+            val px = (point.lng - a.lng) * mPerLng
+            val py = (point.lat - a.lat) * mPerLat
+            val len2 = bx * bx + by * by
+            val t = if (len2 == 0.0) 0.0 else ((px * bx + py * by) / len2).coerceIn(0.0, 1.0)
+            val dx = px - t * bx
+            val dy = py - t * by
+            val d = sqrt(dx * dx + dy * dy)
+            val leg = distanceMeters(a, b)
+            if (d < bestDist) {
+                bestDist = d
+                best = walked + t * leg
+            }
+            walked += leg
         }
         return best to bestDist
     }

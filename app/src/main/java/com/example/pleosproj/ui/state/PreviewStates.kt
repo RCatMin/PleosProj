@@ -126,4 +126,14 @@ object PreviewStates {
         weather = listOf(WeatherCard("지금", 14, 10, 0.0, snow = false)),
         speaking = false,
     )
+
+    /** 검색 결과 예시: "삼성역" */
+    val places = listOf(
+        Place("samsung-station", "삼성역 2호선", "서울 강남구 테헤란로 지하 538", GeoPoint(37.508844, 127.063160), 3360, "지하철역"),
+        Place("coex", "코엑스", "서울 강남구 영동대로 513", GeoPoint(37.511800, 127.059200), 3120, "문화시설"),
+        Place("samsung-1dong", "삼성1동주민센터", "서울 강남구 봉은사로 616", GeoPoint(37.514500, 127.061000), 3700, "공공기관"),
+    )
+
+    /** 최근 목적지 예시 */
+    val recentPlaces = listOf(places[0], Place("seoul-city-hall", "서울특별시청", "서울 중구 세종대로 110", GeoPoint(37.566500, 126.978000), null, "공공기관"))
 }
