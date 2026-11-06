@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pleosproj.ui.guidance.distanceText
 import com.example.pleosproj.ui.permissions.*
+import com.example.pleosproj.ui.state.Place
+import com.example.pleosproj.ui.state.SearchFailure
 
 private val Ink = androidx.compose.ui.graphics.Color(0xFF232228)
 private val Muted = androidx.compose.ui.graphics.Color(0xFF68666D)
@@ -36,19 +38,9 @@ internal fun DestinationSearchScreen(flow: NavigationFlowController, permissions
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("어디로 안내할까요?", fontSize = 46.sp, fontWeight = FontWeight.Bold, color = Ink)
-                Text("강남역 출발 · 삼성역까지의 예시 경로를 확인해 보세요", fontSize = 24.sp, color = Muted)
+                Text("목적지를 찾아 더 안전한 경로를 선택하세요", fontSize = 24.sp, color = Muted)
             }
-            var showExamples by remember { mutableStateOf(false) }
-            Box {
-                TextButton(onClick = { showExamples = true }, enabled = canInput) { Text("검색 상태 예시", fontSize = 21.sp) }
-                DropdownMenu(expanded = showExamples, onDismissRequest = { showExamples = false }) {
-                    SearchExample.entries.forEach { example ->
-                        DropdownMenuItem(text = { Text(example.title, fontSize = 23.sp) }, onClick = {
-                            flow.chooseExample(example); showExamples = false
-                        })
-                    }
-                }
-            }
+
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(value = flow.query, onValueChange = flow::editQuery, enabled = canInput,
@@ -72,17 +64,14 @@ internal fun DestinationSearchScreen(flow: NavigationFlowController, permissions
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (val content = flow.searchContent) {
                 SearchContent.Recent -> Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        Text("최근 목적지", fontSize = 29.sp, fontWeight = FontWeight.SemiBold, color = Ink)
-                        TextButton(onClick = { flow.editQuery("삼성역"); submit() }, enabled = canInput) {
-                            Text("삼성역 검색해 보기", fontSize = 23.sp)
-                        }
-                    }
+                    Text("최근 목적지", fontSize = 29.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                    if (flow.recent.isEmpty()) Text("아직 최근 목적지가 없어요. 이름이나 주소로 검색해 보세요.",
+                        fontSize = 25.sp, color = Muted)
                     PlaceList(flow.recent, canInput, focus, flow::selectPlace)
                 }
                 SearchContent.Loading -> SearchMessage("목적지를 찾고 있어요", "잠시만 기다려 주세요", loading = true)
                 is SearchContent.Results -> if (content.places.isEmpty()) {
-                    SearchMessage("검색 결과가 없어요", "다른 이름이나 주소로 검색해 주세요. 예시 목적지는 삼성역입니다.",
+                    SearchMessage("검색 결과가 없어요", "다른 이름이나 주소로 검색해 주세요.",
                         onRetry = { submit() }, enabled = canInput)
                 } else Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     Text("검색 결과 ${content.places.size}개", fontSize = 29.sp, fontWeight = FontWeight.SemiBold, color = Ink)
@@ -90,23 +79,22 @@ internal fun DestinationSearchScreen(flow: NavigationFlowController, permissions
                 }
                 is SearchContent.Failed -> SearchMessage(
                     when (content.reason) {
-                        SearchExample.KEY_MISSING -> "아직 검색을 이용할 수 없어요"
-                        SearchExample.LIMIT -> "잠시 후 다시 검색해 주세요"
+                        SearchFailure.KEY_MISSING, SearchFailure.NOT_ALLOWED -> "아직 검색을 이용할 수 없어요"
+                        SearchFailure.LIMIT -> "잠시 후 다시 검색해 주세요"
                         else -> "검색 서비스에 연결하지 못했어요"
                     }, when (content.reason) {
-                        SearchExample.KEY_MISSING -> "검색 서비스 설정을 준비하고 있습니다."
-                        SearchExample.LIMIT -> "검색 요청이 많아요. 잠시 기다린 뒤 다시 시도해 주세요."
+                        SearchFailure.KEY_MISSING, SearchFailure.NOT_ALLOWED -> "검색 서비스를 사용할 수 없는 상태입니다. 앱 설정이 준비된 후 이용해 주세요."
+                        SearchFailure.LIMIT -> "검색 요청이 많아요. 잠시 기다린 뒤 다시 시도해 주세요."
                         else -> "인터넷 연결을 확인한 뒤 다시 시도해 주세요."
-                    }, onRetry = { submit() }, enabled = canInput)
+                    }, onRetry = if (content.reason == SearchFailure.NETWORK) ({ submit() }) else null, enabled = canInput)
             }
         }
-        if (flow.example != SearchExample.RESULTS) Text("검색 상태 예시 · ${flow.example.title}", fontSize = 20.sp, color = Muted)
         PermissionCard(permissions, onPermission)
     }
 }
 
 @Composable
-private fun PlaceList(places: List<PlaceExample>, enabled: Boolean, focus: FocusManager, onSelect: (PlaceExample) -> Unit) {
+private fun PlaceList(places: List<Place>, enabled: Boolean, focus: FocusManager, onSelect: (Place) -> Unit) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
         items(places, key = { it.id }) { place ->
             Surface(onClick = { focus.clearFocus(); onSelect(place) }, enabled = enabled,
@@ -116,8 +104,9 @@ private fun PlaceList(places: List<PlaceExample>, enabled: Boolean, focus: Focus
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(place.name, fontSize = 34.sp, fontWeight = FontWeight.SemiBold, color = Ink)
                         Text(place.address, fontSize = 24.sp, color = Muted)
+                        if (place.category.isNotBlank()) Text(place.category, fontSize = 21.sp, color = Muted)
                     }
-                    Text(distanceText(place.distanceMeters), fontSize = 26.sp, color = Muted)
+                    place.distanceMeters?.let { Text(distanceText(it), fontSize = 26.sp, color = Muted) }
                     Text("경로 보기 →", fontSize = 26.sp, fontWeight = FontWeight.SemiBold, color = Ink)
                 }
             }

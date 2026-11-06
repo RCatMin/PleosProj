@@ -28,6 +28,7 @@ class MainActivity : ComponentActivity() {
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         permissionRequestRunning = false
         refreshPermissions()
+        if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) startVehicleReader()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,6 +90,12 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         mapSurface.onStart()
+        startVehicleReader()
+    }
+
+    private fun startVehicleReader() {
+        vehicle?.stop()
+        parked = null
         val generation = ++vehicleGeneration
         val reader = VehicleSignalReader(this) { snapshot ->
             runOnUiThread { if (generation == vehicleGeneration) parked = snapshot.parked }

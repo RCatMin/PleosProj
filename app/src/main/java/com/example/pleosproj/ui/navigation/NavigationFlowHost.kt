@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.pleosproj.navi.GuidanceVoice
-import com.example.pleosproj.scenario.ScenarioPlayer
 import com.example.pleosproj.ui.NavigationTransition
 import com.example.pleosproj.ui.briefing.BriefingScreen
 import com.example.pleosproj.ui.compare.RouteCompareScreen
@@ -32,19 +31,10 @@ private val Ink = Color(0xFF232228)
 internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parked: Boolean?, permissions: List<AccessStatus>,
     onPermission: (AppAccess) -> Unit, onDemo: () -> Unit) {
     val context = LocalContext.current
-    var loadAttempt by remember { mutableIntStateOf(0) }
-    val result = remember(loadAttempt) { runCatching { NavigationExamples(ScenarioPlayer.load(context, "rain-commute")) } }
-    val examples = result.getOrNull()
-    if (examples == null) {
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("화면 예시를 불러오지 못했어요", fontSize = 34.sp)
-            Button(onClick = { loadAttempt++ }) { Text("다시 시도", fontSize = 26.sp) }
-        }
-        return
-    }
     val scope = rememberCoroutineScope()
-    val flow = remember(examples) { NavigationFlowController(examples, scope) }
-    val voice = remember(context) {
+    val flow = remember { NavigationFlowController(RealNavigationSource(context), scope) }
+    // 브리핑만 화면에서 말한다. 주행 중 음성은 GuidanceSession 한 곳에서 낸다.
+    val briefingVoice = remember {
         DemoVoiceController {
             val delegate = GuidanceVoice(context)
             object : DemoSpeech {
@@ -58,30 +48,35 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
         }
     }
     var foreground by remember { mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) }
+    var confirmDemo by remember { mutableStateOf(false) }
+    val access = permissions.filter { it.access != AppAccess.MICROPHONE }.map { it.access to (it.granted to it.approximateLocation) }
+    var previousAccess by remember { mutableStateOf(access) }
+    LaunchedEffect(access) {
+        if (access != previousAccess) { previousAccess = access; briefingVoice.release(); flow.permissionsChanged() }
+    }
     LaunchedEffect(parked, foreground) { flow.updateParked(if (foreground) parked else null) }
-    DisposableEffect(flow, voice, lifecycle) {
+    DisposableEffect(flow, lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) { foreground = true; voice.setForeground(true) }
+            if (event == Lifecycle.Event.ON_START) { foreground = true; flow.updateForeground(true); briefingVoice.setForeground(true) }
             if (event == Lifecycle.Event.ON_STOP) {
-                foreground = false; flow.updateParked(null); voice.setForeground(false)
+                foreground = false; flow.updateParked(null); flow.updateForeground(false); briefingVoice.setForeground(false)
             }
         }
         lifecycle.addObserver(observer)
-        voice.setForeground(foreground)
-        onDispose { lifecycle.removeObserver(observer); flow.dispose(); voice.release() }
+        flow.updateForeground(foreground)
+        briefingVoice.setForeground(foreground)
+        onDispose { lifecycle.removeObserver(observer); briefingVoice.release(); flow.dispose() }
     }
     LaunchedEffect(flow.page, flow.briefing) {
-        when (flow.page) {
-            NavigationPage.BRIEFING -> flow.briefing?.let(voice::briefing)
-            NavigationPage.GUIDANCE -> {
-                voice.beginGuidance(); voice.setPlaying(true)
-            }
-            else -> voice.release()
+        briefingVoice.release()
+        if (flow.page == NavigationPage.BRIEFING) {
+            if (briefingVoice.enabled != flow.voiceEnabled) briefingVoice.toggle()
+            flow.briefing?.let(briefingVoice::briefing)
         }
     }
-    LaunchedEffect(flow.guidance, flow.page) {
-        if (flow.page == NavigationPage.GUIDANCE) flow.guidance?.let(voice::onState)
-    }
+    LaunchedEffect(flow.voiceEnabled) { if (briefingVoice.enabled != flow.voiceEnabled) briefingVoice.toggle() }
+    fun startGuidance() { briefingVoice.release(); flow.startGuidance() }
+    fun openDemo() { briefingVoice.release(); flow.dispose(); onDemo() }
     BackHandler(enabled = flow.page != NavigationPage.SEARCH || flow.query.isNotEmpty()) { flow.back() }
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(flow.notice) {
@@ -96,47 +91,67 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
                 Column(Modifier.weight(1f)) {
                     Text(when (flow.page) {
                         NavigationPage.SEARCH -> "목적지 검색"
+                        NavigationPage.PLANNING -> "경로 탐색"
                         NavigationPage.COMPARE -> "경로 비교"
                         NavigationPage.BRIEFING -> "출발 전 브리핑"
-                        NavigationPage.GUIDANCE -> "${flow.comparison?.candidates?.firstOrNull { it.id == flow.comparison?.selectedId }?.name.orEmpty()} 경로 안내"
+                        NavigationPage.GUIDANCE -> "${flow.routeName} 경로 안내"
                     }, fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = Ink)
-                    Text("예시 데이터 · 실제 검색·GPS와 연결되지 않았습니다", fontSize = 18.sp, color = Color(0xFF68666D))
+                    Text(when {
+                        flow.detouring -> "위험 구간을 피하는 경로를 찾고 있어요"
+                        flow.plan?.weatherMissing == true -> "날씨 정보를 받지 못해 날씨 위험은 반영되지 않았습니다"
+                        else -> "예상 시간에는 실시간 교통이 반영되지 않습니다"
+                    },
+                        fontSize = 18.sp, color = Color(0xFF68666D))
                 }
-                if (flow.page == NavigationPage.GUIDANCE) {
-                    TextButton(onClick = flow::advanceExample) { Text(if (flow.advanced) "출발 위치 예시" else "다음 안내 예시", fontSize = 21.sp, color = Ink) }
-                    TextButton(onClick = { flow.endGuidance(arrived = true) }) { Text("도착 예시", fontSize = 21.sp, color = Ink) }
-                } else if (flow.page == NavigationPage.BRIEFING) TextButton(onClick = voice::toggle) {
-                    Text(if (voice.enabled) "음성 켜짐" else "음성 꺼짐", fontSize = 21.sp, color = Ink)
+                if (flow.page == NavigationPage.BRIEFING) TextButton(onClick = flow::toggleVoice) {
+                    Text(if (flow.voiceEnabled) "음성 켜짐" else "음성 꺼짐", fontSize = 21.sp, color = Ink)
                 }
-                TextButton(onClick = onDemo) { Text("시연 모드", fontSize = 22.sp, color = Ink) }
+                TextButton(onClick = { if (flow.guiding) confirmDemo = true else openDemo() }) { Text("시연 모드", fontSize = 22.sp, color = Ink) }
+            }
+            flow.sessionFailure?.let { message ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(message, Modifier.weight(1f), fontSize = 22.sp, color = Color(0xFF9C2864))
+                    TextButton(onClick = flow::retryConnection) { Text("다시 연결", fontSize = 23.sp) }
+                }
             }
             NavigationTransition(flow.page, Modifier.weight(1f).fillMaxWidth()) { page ->
                 when (page) {
                     NavigationPage.SEARCH -> DestinationSearchScreen(flow, permissions, onPermission)
-                    NavigationPage.COMPARE -> flow.comparison?.let { comparison ->
-                        Box(Modifier.fillMaxSize()) {
-                            RouteCompareScreen(comparison,
-                                onSelect = flow::selectRoute, onStart = flow::showBriefing,
-                                onFitRoutes = surface::resetCamera,
-                                startActionLabel = "출발 전 브리핑",
-                                inputEnabled = flow.parked == true,
-                                startNotice = if (flow.parked != true) "정차 상태를 확인하면 경로를 선택할 수 있어요" else null,
-                                mapContent = { RouteCompareMap(surface, comparison, it) })
+                    NavigationPage.PLANNING -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (flow.planFailure == null) CircularProgressIndicator()
+                        Spacer(Modifier.height(24.dp))
+                        Text(flow.planFailure ?: "안전한 경로를 찾고 있어요", fontSize = 32.sp, color = Ink)
+                        Spacer(Modifier.height(24.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                            OutlinedButton(onClick = flow::back) { Text("돌아가기", fontSize = 25.sp) }
+                            if (flow.planFailure != null) Button(onClick = flow::retryPlan, enabled = flow.parked == true,
+                                colors = ButtonDefaults.buttonColors(containerColor = Ink)) { Text("다시 시도", fontSize = 25.sp) }
                         }
                     }
+                    NavigationPage.COMPARE -> flow.comparison?.let { comparison ->
+                        RouteCompareScreen(comparison, onSelect = flow::selectRoute, onStart = flow::showBriefing,
+                            onFitRoutes = surface::resetCamera, startActionLabel = "출발 전 브리핑",
+                            inputEnabled = flow.parked == true,
+                            startNotice = when {
+                                flow.parked != true -> "정차 상태를 확인하면 경로를 선택할 수 있어요"
+                                flow.plan?.weatherMissing == true -> "날씨 정보를 받지 못해 날씨 위험은 반영되지 않았습니다"
+                                else -> null
+                            }, mapContent = { RouteCompareMap(surface, comparison, it) })
+                    }
                     NavigationPage.BRIEFING -> flow.briefing?.let { briefing ->
-                        BriefingScreen(briefing, flow.parked, flow::startGuidance, flow::showComparison,
-                            onDrivingStarted = flow::drivingStarted,
-                            voiceStatus = if (voice.enabled) "음성 안내 켜짐" else "음성 안내 꺼짐")
+                        BriefingScreen(briefing, flow.parked, ::startGuidance, flow::showComparison,
+                            onDrivingStarted = { briefingVoice.release(); flow.drivingStarted() },
+                            voiceStatus = if (flow.voiceEnabled) "음성 안내 켜짐" else "음성 안내 꺼짐")
+                        if (flow.starting) LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
                     NavigationPage.GUIDANCE -> flow.guidance?.let { guidance ->
-                        GuidanceScreen(guidance, voiceMuted = !voice.enabled,
-                            onAcknowledge = flow::acknowledge, onDetour = flow::showComparison,
-                            onOtherRoutes = flow::showComparison, onToggleVoice = voice::toggle,
+                        GuidanceScreen(guidance, voiceMuted = !flow.voiceEnabled,
+                            onAcknowledge = flow::acknowledge, onDetour = flow::acceptDetour,
+                            onOtherRoutes = flow::showComparison, onToggleVoice = flow::toggleVoice,
                             onEnd = flow::requestEnd, onRecenter = surface::resetCamera,
                             onToggleViewpoint = { surface.showDriverView(!surface.isDriverView) },
-                            driverView = surface.isDriverView,
-                            mapContent = { GuidanceMap(surface, guidance, it) })
+                            driverView = surface.isDriverView, mapContent = { GuidanceMap(surface, guidance, it) })
                     }
                 }
             }
@@ -145,7 +160,12 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
     }
     if (flow.confirmEnd) AlertDialog(onDismissRequest = flow::dismissEnd,
         title = { Text("안내를 종료할까요?", fontSize = 30.sp) },
-        text = { Text("${flow.comparison?.destinationName}까지의 예시 안내를 종료합니다.", fontSize = 24.sp) },
-        confirmButton = { TextButton(onClick = { flow.endGuidance() }) { Text("안내 종료", fontSize = 25.sp) } },
+        text = { Text("${flow.guidance?.destinationName ?: flow.comparison?.destinationName}까지의 안내를 종료합니다.", fontSize = 24.sp) },
+        confirmButton = { TextButton(onClick = flow::endGuidance) { Text("안내 종료", fontSize = 25.sp) } },
         dismissButton = { TextButton(onClick = flow::dismissEnd) { Text("계속 안내", fontSize = 25.sp) } })
+    if (confirmDemo) AlertDialog(onDismissRequest = { confirmDemo = false },
+        title = { Text("시연 모드로 전환할까요?", fontSize = 30.sp) },
+        text = { Text("현재 주행 안내를 종료하고 시연을 시작합니다.", fontSize = 24.sp) },
+        confirmButton = { TextButton(onClick = { confirmDemo = false; openDemo() }) { Text("시연 시작", fontSize = 25.sp) } },
+        dismissButton = { TextButton(onClick = { confirmDemo = false }) { Text("계속 안내", fontSize = 25.sp) } })
 }
