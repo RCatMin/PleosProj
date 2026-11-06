@@ -8,7 +8,7 @@
 
 - 플랫폼: Pleos Connect (Android Automotive, API 34 에뮬레이터), minSdk 28
 - Kotlin + Jetpack Compose, 단일 모듈 `app`, 패키지 `com.example.pleosproj` (서비스 이름이 정해지면 바꾼다)
-- 경로 계산·회전 안내·장소 검색·현재 위치 주소는 **Pleos 기본 내비**가 계산하고, 앱은 그 값을 **NaviHelper SDK**로 받아 온다
+- 기본 내비와 별개인 **우리 내비**다. 목적지 검색(카카오 로컬), 경로 계산(OSRM), 경로 비교, 안내·음성, 재탐색을 앱이 한다 (ADR 0007). 기본 내비 화면을 운전자에게 보여 주지 않는다
 - 앱은 내비처럼 보이는 안내 화면을 직접 그린다. 지도는 **MapLibre** + OpenStreetMap 기반 공개 지도. Pleos Map SDK를 쓸 수 있게 되면 바꾼다. TMAP 등 상용 지도는 쓰지 않는다
 
 ## 먼저 읽을 것
@@ -20,7 +20,7 @@
 
 | 경로 (`app/src/main/java/com/example/pleosproj/` 기준) | 권한 |
 | --- | --- |
-| `navi/`, `vehicle/`, `location/`, `voice/`, `weather/`, `traffic/`, `risk/`, `scenario/`, `app/` | 자유롭게 수정 |
+| `navi/`, `vehicle/`, `location/`, `voice/`, `weather/`, `traffic/`, `risk/`, `routing/`, `scenario/`, `app/` | 자유롭게 수정 |
 | `ui/state/` (화면 상태 모델) | 수정 가능. 단, 변경은 별도 PR로 올리고 사람 승인 후 머지 |
 | `ui/` (`ui/state/` 제외), `MainActivity.kt`, `res/` | **수정 금지.** 필요한 변경은 `화면` 라벨 Linear 이슈로 요청한다 |
 | `AndroidManifest.xml`, Gradle 파일 | 수정 가능. 권한·의존성 추가·삭제는 먼저 물어본다 |

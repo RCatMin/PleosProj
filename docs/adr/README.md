@@ -16,9 +16,10 @@
 | [0001](./0001-app-structure.md) | 앱 구조 | Proposed |
 | [0002](./0002-map-provider.md) | 지도 | Proposed |
 | [0003](./0003-risk-scoring.md) | 위험도 계산 | Proposed |
-| [0004](./0004-built-in-navi-role.md) | 기본 내비와 역할 나누기 | Proposed |
-| [0005](./0005-route-line-and-demo.md) | 경로선 표시와 시연 방식 | Proposed |
+| [0004](./0004-built-in-navi-role.md) | 기본 내비와 역할 나누기 | Superseded by 0007 |
+| [0005](./0005-route-line-and-demo.md) | 경로선 표시와 시연 방식 | Superseded by 0007 |
 | [0006](./0006-sdk-fallback.md) | Pleos SDK를 쓸 수 없을 때의 대체 | Proposed |
+| [0007](./0007-own-routing.md) | 경로 계산과 장소 검색을 우리 앱이 한다 | Proposed |
 
 ## 템플릿
 

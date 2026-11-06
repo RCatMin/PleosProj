@@ -2,6 +2,11 @@ package com.example.pleosproj.scenario
 
 import com.example.pleosproj.risk.BodyType
 import com.example.pleosproj.risk.LatLng
+import com.example.pleosproj.routing.RiskPoint
+import com.example.pleosproj.routing.RouteComparer
+import com.example.pleosproj.routing.RoutePlan
+import com.example.pleosproj.routing.RouteTurn
+import com.example.pleosproj.routing.WeatherSample
 import com.example.pleosproj.risk.RiskBand
 import com.example.pleosproj.risk.RiskEngine
 import com.example.pleosproj.risk.RiskWeights
@@ -57,36 +62,15 @@ class ScenarioEngine(
 
     // --- 경로 비교 ---
 
-    /** 출발 시각(재생 0초) 기준 후보 경로 비교 */
-    fun compare(atSeconds: Double = 0.0): RouteCompareState {
-        val vehicle = vehicleAt(atSeconds)
-        val inputs = scenario.routes.map { RouteInput(it.id, segments(it, atSeconds)) }
-        val rec = RiskEngine.recommend(inputs, vehicle)
-        val candidates = scenario.routes.map { route ->
-            val a = rec.assessments.first { it.id == route.id }
-            val hazards = hazardsNear(route, atSeconds)
-            RouteCandidate(
-                id = route.id,
-                name = route.name,
-                durationSeconds = route.durationSeconds,
-                distanceMeters = RouteGeometry.lengthMeters(route.line).roundToInt(),
-                tollWon = route.tollWon,
-                riskScore = a.score,
-                riskLevel = a.band.toLevel(),
-                excluded = a.excluded,
-                riskSummary = summary(route, hazards, atSeconds, a.excluded, a.band.toLevel()),
-                routeLine = route.line.map { it.toGeo() },
-                hazards = hazards.map { uiHazard(it, atSeconds) },
-            )
-        }
-        return RouteCompareState(
-            destinationName = scenario.destinationName,
-            candidates = candidates,
-            selectedId = rec.recommendedId ?: candidates.first().id,
-            recommendedId = rec.recommendedId,
-            adviceWhenAllRisky = if (rec.suggestPostpone) "모든 경로가 위험해요. 비가 약해질 때까지 출발을 미루는 게 좋아요." else null,
-        )
-    }
+    /** 출발 시각(재생 0초) 기준 후보 경로 비교. 실제 길찾기와 같은 계산([RouteComparer])을 쓴다 */
+    fun compare(atSeconds: Double = 0.0): RouteCompareState = RouteComparer(hazardRadiusMeters).compare(
+        destinationName = scenario.destinationName,
+        routes = scenario.routes.map { it.toPlan() },
+        hazards = scenario.hazards.map { it.toRiskPoint() },
+        weather = { _, seconds -> scenario.weather.at(seconds) { it.atSeconds }.toSample() },
+        vehicle = vehicleAt(atSeconds),
+        startSeconds = atSeconds,
+    )
 
     // --- 출발 전 브리핑 ---
 
@@ -118,8 +102,10 @@ class ScenarioEngine(
         val traveled = driveLength * ratio
         val here = RouteGeometry.pointAt(drive.line, traveled)
         val turnsAhead = drive.turns.filter { it.atMeters > traveled }
-        val segs = segments(drive, 0.0)
-        val segScores = RiskEngine.assess(RouteInput(drive.id, segs), vehicleAt(seconds)).segmentScores
+        val segScores = RouteComparer(hazardRadiusMeters).segmentScores(
+            drive.toPlan(), scenario.hazards.map { it.toRiskPoint() },
+            { _, t -> scenario.weather.at(t) { it.atSeconds }.toSample() }, vehicleAt(seconds),
+        )
         val slices = RouteGeometry.slice(drive.line)
 
         return GuidanceState(
@@ -152,37 +138,6 @@ class ScenarioEngine(
     // --- 내부 계산 ---
 
     /** 경로를 1km 구간으로 나누고, 출발 시각 [startSeconds]에 떠났을 때 각 구간을 지나는 시각의 상황을 붙인다 */
-    private fun segments(route: ScenarioRoute, startSeconds: Double): List<RouteSegment> {
-        val length = RouteGeometry.lengthMeters(route.line)
-        // 경로에서 반경 안에 있는 위험 지점과, 그 지점이 경로의 몇 % 위치인지
-        val onRoute = scenario.hazards.mapNotNull { h ->
-            val (along, off) = RouteGeometry.project(route.line, h.position)
-            if (off <= hazardRadiusMeters) h to along / length else null
-        }
-        return RouteGeometry.slice(route.line).map { slice ->
-            val passAt = startSeconds + route.durationSeconds * (slice.startRatio + slice.endRatio) / 2
-            val w = scenario.weather.at(passAt) { it.atSeconds }
-            val near = onRoute.filter { (_, r) -> r >= slice.startRatio && r <= slice.endRatio }.map { it.first }
-            RouteSegment(
-                lengthMeters = slice.lengthMeters,
-                travelSeconds = route.durationSeconds * (slice.endRatio - slice.startRatio),
-                conditions = SegmentConditions(
-                    rainMmPerHour = w.rainMmPerHour,
-                    snowing = w.snowing,
-                    temperatureC = w.temperatureC,
-                    warning = w.warning,
-                    vulnerability = near.map { it.vulnerability }.maxByOrNull { it.ordinal } ?: Vulnerability.NONE,
-                    icingZone = near.any { it.icingZone },
-                    closed = near.any { it.closedAt(passAt) },
-                ),
-            )
-        }
-    }
-
-    private fun hazardsNear(route: ScenarioRoute, @Suppress("UNUSED_PARAMETER") atSeconds: Double) = scenario.hazards.filter { h ->
-        RouteGeometry.project(route.line, h.position).second <= hazardRadiusMeters
-    }
-
     private fun nearestHazard(p: LatLng) = scenario.hazards
         .minByOrNull { RouteGeometry.distanceMeters(it.position, p) }
         ?.takeIf { RouteGeometry.distanceMeters(it.position, p) <= 700.0 }
@@ -253,34 +208,17 @@ class ScenarioEngine(
         snow = w.snowing,
     )
 
-    /**
-     * 경로 카드에 보일 한 줄 요약. 경로 점수와 어긋나지 않게,
-     * 취약 지점뿐 아니라 그 지점을 지날 시각의 날씨로 "보통" 이상인 지점(물 고임·호우 등)도 넣는다 (PLE-27).
-     */
-    private fun summary(
-        route: ScenarioRoute, hazards: List<ScenarioHazard>, seconds: Double, excluded: Boolean, routeLevel: RiskLevel,
-    ): String {
-        // 빠진 경로는 지날 시각에 통제되는 곳 때문이므로, 지금 통제 중이 아니면 "통제 예정"으로 쓴다
-        val closing = hazards.filter { it.closedFromSeconds != null }
-        if (excluded && closing.isNotEmpty()) {
-            return closing.joinToString { it.title } + if (closing.all { it.closedAt(seconds) }) " 통제" else " 통제 예정"
-        }
-        val risky = hazards.filter {
-            it.vulnerability != Vulnerability.NONE || it.icingZone || uiHazard(it, passAt(route, it, seconds)).level >= RiskLevel.MEDIUM
-        }
-        return when {
-            risky.isNotEmpty() -> risky.joinToString { it.title } + " 지남"
-            // 위험 지점은 없지만 경로 전체에 비가 강하면 그렇게 말한다
-            routeLevel >= RiskLevel.MEDIUM -> "경로 전체 강한 비"
-            else -> "위험 구간 없음"
-        }
-    }
+    private fun ScenarioRoute.toPlan() = RoutePlan(
+        id = id, name = name, distanceMeters = RouteComparer.lengthOf(line), durationSeconds = durationSeconds,
+        line = line, turns = turns.map { RouteTurn(it.atMeters, it.kind, it.text) }, tollWon = tollWon,
+    )
 
-    /** 출발 시각 [startSeconds]에 떠났을 때 [route]에서 [h] 지점을 지나는 시각 */
-    private fun passAt(route: ScenarioRoute, h: ScenarioHazard, startSeconds: Double): Double {
-        val along = RouteGeometry.project(route.line, h.position).first
-        return startSeconds + route.durationSeconds * along / RouteGeometry.lengthMeters(route.line)
-    }
+    private fun ScenarioHazard.toRiskPoint() = RiskPoint(
+        id = id, kind = kind, position = position, title = title, detail = detail,
+        vulnerability = vulnerability, icingZone = icingZone, closedFromSeconds = closedFromSeconds,
+    )
+
+    private fun WeatherKey.toSample() = WeatherSample(rainMmPerHour, snowing, temperatureC, warning)
 
     private fun LatLng.toGeo() = GeoPoint(lat, lng)
 }
