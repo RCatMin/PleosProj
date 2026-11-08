@@ -12,6 +12,7 @@
 | 안내 시작 | 선택 경로로 안내 시작. 언주로 좌회전 1.2km, 남은 거리 4.8km | [안내 시작](live-guidance-start.png) |
 | GPS 이동 | 같은 경로의 위치·진행 막대 이동. 첫 회전 916m, 남은 거리 4.5km | [이동 중](live-guidance-moving.png) |
 | 회전 이후 | 첫 좌회전을 지나 봉은사로 우회전 695m로 갱신. 남은 거리 3.5km | [다음 회전](live-guidance-after-turn.png) |
+| 경로 이탈 재탐색 | 출발점에서 약 500m 떨어진 GPS를 유지하자 새 경로선과 `다시 찾은 경로 안내`·새 회전·남은 거리로 갱신 | [재탐색 후](live-rerouted.png) |
 | 음성 끄기 | 음성 꺼짐 표시. 꺼진 구간에서 새 발화 요청 없이 안내 상태는 계속 갱신 | [음성 꺼짐](live-guidance-muted.png) |
 | 음성 다시 켜기 | 음성 켜짐 표시. 이후 300m·직전 회전 안내 요청 재개 | [음성 재개](live-guidance-resumed.png) |
 | 종료 확인 | 계속 안내를 선택하면 안내 유지, 다시 종료를 확인하면 검색 화면 복귀 | [종료 확인](live-end-confirmation.png), [종료 후](live-ended.png) |
