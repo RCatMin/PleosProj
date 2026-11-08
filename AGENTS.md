@@ -8,7 +8,7 @@
 
 - 플랫폼: Pleos Connect (Android Automotive, API 34 에뮬레이터), minSdk 28
 - Kotlin + Jetpack Compose, 단일 모듈 `app`, 패키지 `com.example.pleosproj` (서비스 이름이 정해지면 바꾼다)
-- 기본 내비와 별개인 **우리 내비**다. 목적지 검색(카카오 로컬), 경로 계산(OSRM), 경로 비교, 안내·음성, 재탐색을 앱이 하고, Claude가 그 결과를 화면 상태 모델로 넘긴다 (ADR 0007). 기본 내비 화면을 운전자에게 보여 주지 않는다
+- 기본 내비와 별개인 **우리 내비**다. 목적지 검색(카카오 로컬), 경로 계산(카카오모빌리티, 안 되면 OSRM), 경로 비교, 안내·음성, 재탐색을 앱이 하고, Claude가 그 결과를 화면 상태 모델로 넘긴다 (ADR 0007). 기본 내비 화면을 운전자에게 보여 주지 않는다
 - 앱은 내비처럼 보이는 안내 화면을 직접 그린다. 지도는 **MapLibre** + OpenStreetMap 기반 공개 지도(OpenFreeMap 등). Pleos Map SDK를 쓸 수 있게 되면 바꾸므로, 지도 코드는 `ui/map/` 한 곳에 모은다. TMAP 등 상용 지도는 쓰지 않는다
 
 ## 먼저 읽을 것

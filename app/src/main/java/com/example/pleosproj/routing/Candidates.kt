@@ -50,7 +50,7 @@ object Candidates {
      * 큰길 직진이 지나치게 빠르게 나오므로 비율을 넉넉히 둔다. 추천은 따로 ADR 0003의 +20% 규칙을 따른다
      */
     fun pickDistinct(
-        routes: List<RoutePlan>, maxCount: Int = 3, maxOverlap: Double = 0.7, maxDetourRatio: Double = 2.0,
+        routes: List<RoutePlan>, maxCount: Int = 3, maxOverlap: Double = 0.7, maxDetourRatio: Double = 2.2,
     ): List<RoutePlan> {
         val sorted = routes.sortedBy { it.durationSeconds }
         val fastest = sorted.firstOrNull() ?: return emptyList()
@@ -87,5 +87,25 @@ object Candidates {
         val others = routes.filter { it !== r }
         val best = r.roads.maxByOrNull { (road, meters) -> meters - (others.maxOfOrNull { it.roads[road] ?: 0.0 } ?: 0.0) }
         if (best == null || routes.size == 1) r else r.copy(name = "${best.key} 경유")
+    }
+
+    /**
+     * 후보 경로에 성격으로 이름을 붙인다 (예시 앱과 같은 방식). 첫 경로(길찾기 추천)가 가장 빠르면 "추천 길",
+     * 그 밖에 가장 빠른 길·가장 짧은 길을 표시하고, 나머지는 "빠른 순서 N위"로 쓴다
+     */
+    fun nameByRole(routes: List<RoutePlan>): List<RoutePlan> {
+        if (routes.size <= 1) return routes.map { it.copy(name = "추천 길") }
+        val fastest = routes.minByOrNull { it.durationSeconds }
+        val shortest = routes.minByOrNull { it.distanceMeters }
+        val byTime = routes.sortedBy { it.durationSeconds }
+        return routes.mapIndexed { i, r ->
+            val name = when {
+                r === fastest -> if (i == 0) "추천 길" else "가장 빠른 길"
+                r === shortest -> "가장 짧은 길"
+                i == 0 -> "추천 길"
+                else -> "빠른 순서 ${byTime.indexOf(r) + 1}위"
+            }
+            r.copy(name = name)
+        }
     }
 }

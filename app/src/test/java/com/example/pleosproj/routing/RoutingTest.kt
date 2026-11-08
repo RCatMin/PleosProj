@@ -43,8 +43,8 @@ class RoutingTest {
         assertTrue(r.compare.candidates.all { it.routeLine.isNotEmpty() })
         // 맑으면 빠른 길을 추천한다
         assertEquals("route-0", r.compare.recommendedId)
-        // 대안이 모자라서 양옆 경유 지점으로 두 번 더 물어본다
-        assertEquals(3, requests.size)
+        // 서로 다른 후보가 이미 두 개라 경유 지점으로 더 묻지 않는다
+        assertEquals(1, requests.size)
     }
 
     @Test
