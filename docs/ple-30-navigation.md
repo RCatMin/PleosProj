@@ -51,3 +51,7 @@ adb shell am broadcast --user current -n com.example.pleosproj/.app.NaviProbeRec
 ```
 
 키는 Git 제외 로컬 설정으로만 제공하며, 스크린샷·PR·커밋에 키 값과 APK를 올리지 않습니다.
+
+## 검증 결과
+
+2026년 11월 9일 실제 선택 경로를 GPS로 끝까지 재생해 위치·회전·남은 거리 갱신과 자동 도착·검색 화면 복귀를 확인했습니다. 수동 종료·취소, 실제 안내와 시연의 음성 켜기·끄기, 시연 초기 브리핑·회전·위험 경고도 화면과 SDK 발화 로그로 확인했습니다. [화면별 캡처와 검증 기록](screenshots/ple-30/README.md)에 결과를 정리했습니다.
