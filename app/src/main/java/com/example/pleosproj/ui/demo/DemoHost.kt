@@ -30,24 +30,27 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onExit: () -> U
     var page by remember { mutableStateOf(DemoPage.BRIEFING) }
     var selectedId by remember { mutableStateOf(session.comparison.selectedId) }
     var acknowledgedId by remember { mutableStateOf<String?>(null) }
-    var muted by remember { mutableStateOf(false) }
     var confirmEnd by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val state = playback.guidance.let { if (it.alert?.hazardId == acknowledgedId) it.copy(alert = null) else it }
-    fun compare() { playback.stop(); page = DemoPage.COMPARE }
-    fun start() { playback.reset(); acknowledgedId = null; page = DemoPage.GUIDANCE; playback.play() }
+    fun compare() { session.pause(); page = DemoPage.COMPARE }
+    fun start() { session.reset(); acknowledgedId = null; page = DemoPage.GUIDANCE; session.play() }
     fun message(text: String) { scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(text) } }
     BackHandler {
         when (page) {
             DemoPage.BRIEFING -> onExit()
-            DemoPage.COMPARE -> { playback.stop(); page = DemoPage.BRIEFING }
-            DemoPage.GUIDANCE -> { playback.stop(); confirmEnd = true }
+            DemoPage.COMPARE -> { session.pause(); page = DemoPage.BRIEFING }
+            DemoPage.GUIDANCE -> { session.pause(); confirmEnd = true }
             DemoPage.ENDED -> onExit()
         }
     }
     LaunchedEffect(playback.finished) {
+        // 도착 안내를 말하는 도중 음성을 꺼서 마지막 문장을 끊지 않는다.
         if (playback.finished && page == DemoPage.GUIDANCE) page = DemoPage.ENDED
+    }
+    LaunchedEffect(session, page) {
+        if (page == DemoPage.BRIEFING) session.voice.briefing(session.briefing)
     }
     Box(Modifier.fillMaxSize().background(Color(0xFFF7F7F8))) {
         Column(Modifier.fillMaxSize()) {
@@ -58,24 +61,28 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onExit: () -> U
                     Text("시연 · ${session.title}", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = Ink)
                     Text("위험·날씨는 시나리오 데이터입니다", fontSize = 18.sp, color = Color(0xFF68666D))
                 }
-                if (page == DemoPage.GUIDANCE) PlaybackControls(playback,
-                    onReset = { acknowledgedId = null; playback.reset() })
-                TextButton(onClick = { playback.stop(); onExit() }) { Text("첫 화면", fontSize = 21.sp, color = Ink) }
+                if (page == DemoPage.GUIDANCE) PlaybackControls(session,
+                    onReset = { acknowledgedId = null; session.reset() })
+                else TextButton(onClick = session.voice::toggle) {
+                    Text(if (session.voice.enabled) "음성 켜짐" else "음성 꺼짐", fontSize = 21.sp, color = Ink)
+                }
+                TextButton(onClick = { session.pause(); session.voice.release(); onExit() }) { Text("첫 화면", fontSize = 21.sp, color = Ink) }
             }
             NavigationTransition(page, Modifier.weight(1f).fillMaxWidth()) { displayed ->
                 when (displayed) {
                     DemoPage.BRIEFING -> BriefingScreen(session.briefing, isParked = true,
-                        onStart = { start() }, onCompare = { compare() }, onDrivingStarted = { start() })
+                        onStart = { start() }, onCompare = { compare() }, onDrivingStarted = { start() },
+                        voiceStatus = if (session.voice.enabled) "음성 안내 켜짐" else "음성 안내 꺼짐")
                     DemoPage.COMPARE -> RouteCompareScreen(session.comparison.copy(selectedId = selectedId),
                         onSelect = { id -> if (session.comparison.candidates.any { it.id == id && !it.excluded }) selectedId = id },
                         onStart = { start() }, onFitRoutes = surface::resetCamera,
                         startNotice = "시연 안내는 ${session.driveRouteName} 경로로 처음부터 진행합니다",
                         mapContent = { RouteCompareMap(surface, session.comparison.copy(selectedId = selectedId), it) })
-                    DemoPage.GUIDANCE -> GuidanceScreen(state, voiceMuted = muted,
+                    DemoPage.GUIDANCE -> GuidanceScreen(state, voiceMuted = !session.voice.enabled,
                         onAcknowledge = { acknowledgedId = it },
                         onDetour = { message("시연은 정해진 ${session.driveRouteName} 경로로 진행합니다") },
-                        onOtherRoutes = { compare() }, onToggleVoice = { muted = !muted; message("음성 출력은 아직 연결되지 않았습니다") },
-                        onEnd = { playback.stop(); confirmEnd = true },
+                        onOtherRoutes = { compare() }, onToggleVoice = session.voice::toggle,
+                        onEnd = { session.pause(); confirmEnd = true },
                         onToggleViewpoint = { surface.showDriverView(!surface.isDriverView) },
                         onRecenter = surface::resetCamera, driverView = surface.isDriverView,
                         mapContent = { GuidanceMap(surface, state, it, motionFrame) })
@@ -96,20 +103,21 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onExit: () -> U
     if (confirmEnd) AlertDialog(onDismissRequest = { confirmEnd = false },
         title = { Text("시연 안내를 종료할까요?", fontSize = 29.sp) },
         text = { Text("시연은 일시정지된 상태입니다.", fontSize = 24.sp, lineHeight = 34.sp) },
-        confirmButton = { TextButton(onClick = { confirmEnd = false; playback.stop(); page = DemoPage.ENDED }) { Text("안내 종료", fontSize = 24.sp) } },
+        confirmButton = { TextButton(onClick = { confirmEnd = false; session.pause(); page = DemoPage.ENDED }) { Text("안내 종료", fontSize = 24.sp) } },
         dismissButton = { TextButton(onClick = { confirmEnd = false }) { Text("계속 보기", fontSize = 24.sp) } })
 }
 
 @Composable
-private fun PlaybackControls(playback: PlaybackController, onReset: () -> Unit) {
+private fun PlaybackControls(session: DemoSession, onReset: () -> Unit) {
+    val playback = session.playback
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("${clock(playback.seconds)} / ${clock(playback.durationSeconds.toDouble())}", fontSize = 20.sp, color = Ink)
-        FilledTonalButton(onClick = { if (playback.playing) playback.stop() else playback.play() },
+        FilledTonalButton(onClick = { if (playback.playing) session.pause() else session.play() },
             colors = ButtonDefaults.filledTonalButtonColors(containerColor = Ink, contentColor = Color.White)) {
             Text(if (playback.playing) "일시정지" else "재생", fontSize = 21.sp)
         }
         for (speed in listOf(1.0, 2.0, 4.0)) FilterChip(selected = playback.speed == speed,
-            onClick = { playback.changeSpeed(speed) }, label = { Text("${speed.toInt()}배", fontSize = 20.sp) })
+            onClick = { session.changeSpeed(speed) }, label = { Text("${speed.toInt()}배", fontSize = 20.sp) })
         TextButton(onClick = onReset) { Text("처음으로", fontSize = 21.sp, color = Ink) }
     }
 }
