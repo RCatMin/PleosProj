@@ -12,7 +12,7 @@ import org.json.JSONArray
 import java.io.File
 
 // 화면 수명과 비동기 요청을 테스트하기 위한 연결부다. 제품 데이터는 개발 영역의 공개 API에서만 받는다.
-internal data class NavigationPlan(val compare: RouteCompareState, val briefings: Map<String, BriefingState>, val weatherMissing: Boolean)
+internal data class NavigationPlan(val compare: RouteCompareState, val briefings: Map<String, BriefingState>, val weatherMissing: Boolean, val fallbackReason: String? = null, val departureTime: java.time.LocalTime? = null)
 internal sealed interface NavigationEvent {
     data object Rerouted : NavigationEvent
     data object Detoured : NavigationEvent
@@ -100,4 +100,4 @@ internal fun RoutePlanResult.toScreenPlan(): NavigationPlan = NavigationPlan(com
                 if (weatherMissing) add("날씨 정보를 받지 못해 위험도에 날씨가 반영되지 않았습니다")
             }, chosen.riskLevel, if (weatherMissing) emptyList() else initial.weather, speaking = false,
         )
-    }, weatherMissing)
+    }, weatherMissing, fallbackReason, plannedAt.toLocalTime())

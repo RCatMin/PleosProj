@@ -34,9 +34,9 @@ internal fun GuidanceMap(surface: MapSurface, state: GuidanceState, modifier: Mo
     }
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
-        val leftInset = minOf(460.dp, maxWidth * 0.38f)
+        val leftInset = minOf(480.dp, maxWidth * .46f) + 36.dp
         LaunchedEffect(surface, leftInset, density) {
-            with(density) { surface.setViewportInsets(leftInset.roundToPx(), 200.dp.roundToPx(), 24.dp.roundToPx(), 0) }
+            with(density) { surface.setViewportInsets(leftInset.roundToPx(), 120.dp.roundToPx(), 250.dp.roundToPx(), 80.dp.roundToPx()) }
         }
         MapCanvas(surface, Modifier.fillMaxSize())
     }
@@ -46,7 +46,7 @@ internal fun GuidanceMap(surface: MapSurface, state: GuidanceState, modifier: Mo
 internal fun MapCanvas(surface: MapSurface, modifier: Modifier = Modifier) {
     Box(modifier) {
         AndroidView(factory = { surface.view }, modifier = Modifier.fillMaxSize())
-        Surface(Modifier.align(Alignment.BottomStart).padding(10.dp), color = Color.White.copy(alpha = 0.95f)) {
+        Surface(Modifier.align(Alignment.BottomEnd).padding(10.dp), color = Color.White.copy(alpha = 0.95f), contentColor = Color(0xFF23252B)) {
             Text(buildAnnotatedString {
                 withLink(LinkAnnotation.Url("https://openfreemap.org/")) { append("© OpenFreeMap") }
                 append(" · ")
@@ -56,7 +56,7 @@ internal fun MapCanvas(surface: MapSurface, modifier: Modifier = Modifier) {
             }, Modifier.padding(8.dp), fontSize = 13.sp)
         }
         surface.loadMessage?.let { message ->
-            Surface(Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp), color = Color.White) {
+            Surface(Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surface) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(message, fontSize = 20.sp)
                     if (message.contains("못했어요")) TextButton(onClick = surface::reload) { Text("다시 시도") }

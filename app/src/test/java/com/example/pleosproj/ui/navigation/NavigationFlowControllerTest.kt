@@ -172,6 +172,78 @@ class NavigationFlowControllerTest {
         flow.dispose()
     }
 
+    @Test fun alternativeRouteComparisonKeepsGuidanceAndCanContinueWithoutRestarting() = runBlocking {
+        val source = FakeSource()
+        val flow = ready(source, this)
+        val feed = source.feeds.single()
+        guide(flow, feed)
+        val before = flow.guidance
+        flow.showComparison()
+        assertEquals(NavigationPage.PLANNING, flow.page)
+        assertTrue(feed.voiceEnabled)
+        feed.planned.last()(Result.success(plan))
+        assertTrue(flow.comparingCurrent)
+        assertEquals(before?.remainingSeconds, flow.comparisonRemainingSeconds)
+        flow.selectRoute("c")
+        flow.continueGuidance()
+        assertEquals(NavigationPage.GUIDANCE, flow.page)
+        assertEquals(listOf("b"), feed.started)
+        assertEquals(before, flow.guidance)
+        assertFalse(flow.comparingCurrent)
+        flow.dispose()
+    }
+
+    @Test fun missingWeatherInAnAlternativePlanDoesNotReplaceTheCurrentTripWeather() = runBlocking {
+        val source = FakeSource()
+        val flow = ready(source, this)
+        val feed = source.feeds.single()
+        guide(flow, feed)
+        val current = flow.guidance!!
+        flow.showComparison()
+        feed.planned.last()(Result.success(plan.copy(weatherMissing = true)))
+        feed.onState(current)
+        flow.continueGuidance()
+        assertEquals(current.weather, flow.guidance!!.weather)
+        flow.dispose()
+    }
+
+    @Test fun alternativeRouteStartsSelectedCandidateAndRejectsDrivingAndExcludedChoices() = runBlocking {
+        val source = FakeSource()
+        val flow = ready(source, this)
+        val feed = source.feeds.single()
+        guide(flow, feed)
+        flow.showComparison()
+        feed.planned.last()(Result.success(plan))
+        flow.startComparedRoute("a")
+        assertEquals(listOf("b"), feed.started)
+        flow.updateParked(false)
+        flow.startComparedRoute("c")
+        assertEquals(listOf("b"), feed.started)
+        flow.updateParked(true)
+        flow.startComparedRoute("c")
+        assertEquals(listOf("b", "c"), feed.started)
+        assertEquals(plan.compare.candidates.last().tollWon, flow.activeTollWon)
+        feed.onState(PreviewStates.guidanceScenario.copy(mode = DriveMode.LIVE))
+        assertEquals(NavigationPage.GUIDANCE, flow.page)
+        feed.onEvent(NavigationEvent.Rerouted)
+        assertNull(flow.activeTollWon)
+        flow.dispose()
+    }
+
+    @Test fun backFromPendingAlternativeSearchIgnoresResponseAndKeepsCurrentGuidance() = runBlocking {
+        val source = FakeSource()
+        val flow = ready(source, this)
+        val feed = source.feeds.single()
+        guide(flow, feed)
+        flow.showComparison()
+        flow.back()
+        feed.planned.last()(Result.success(plan))
+        assertEquals(NavigationPage.GUIDANCE, flow.page)
+        assertTrue(feed.voiceEnabled)
+        assertEquals(listOf("b"), feed.started)
+        flow.dispose()
+    }
+
     private fun ready(source: FakeSource, scope: CoroutineScope) = NavigationFlowController(source, scope).apply {
         updateForeground(true); updateParked(true)
     }

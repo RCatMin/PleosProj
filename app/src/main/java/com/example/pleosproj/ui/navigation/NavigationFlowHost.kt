@@ -25,11 +25,11 @@ import com.example.pleosproj.ui.map.*
 import com.example.pleosproj.ui.permissions.*
 import com.example.pleosproj.ui.state.*
 
-private val Ink = Color(0xFF232228)
+private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
 
 @Composable
 internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parked: Boolean?, permissions: List<AccessStatus>,
-    onPermission: (AppAccess) -> Unit, onDemo: () -> Unit) {
+    onPermission: (AppAccess) -> Unit, onDemo: () -> Unit, speedKph: Double?) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val flow = remember { NavigationFlowController(RealNavigationSource(context), scope) }
@@ -82,7 +82,7 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
     LaunchedEffect(flow.notice) {
         flow.notice?.let { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(it); flow.consumeNotice() }
     }
-    Box(Modifier.fillMaxSize().background(Color(0xFFF7F7F8))) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -96,12 +96,13 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
                         NavigationPage.BRIEFING -> "출발 전 브리핑"
                         NavigationPage.GUIDANCE -> "${flow.routeName} 경로 안내"
                     }, fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = Ink)
-                    Text(when {
+                    val status = when {
                         flow.detouring -> "위험 구간을 피하는 경로를 찾고 있어요"
+                        flow.plan?.fallbackReason != null -> "대체 경로 · 교통 미반영 (${flow.plan?.fallbackReason})"
                         flow.plan?.weatherMissing == true -> "날씨 정보를 받지 못해 날씨 위험은 반영되지 않았습니다"
-                        else -> "예상 시간에는 실시간 교통이 반영되지 않습니다"
-                    },
-                        fontSize = 18.sp, color = Color(0xFF68666D))
+                        else -> null
+                    }
+                    status?.let { Text(it, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 if (flow.page == NavigationPage.BRIEFING) TextButton(onClick = flow::toggleVoice) {
                     Text(if (flow.voiceEnabled) "음성 켜짐" else "음성 꺼짐", fontSize = 21.sp, color = Ink)
@@ -130,8 +131,13 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
                         }
                     }
                     NavigationPage.COMPARE -> flow.comparison?.let { comparison ->
-                        RouteCompareScreen(comparison, onSelect = flow::selectRoute, onStart = flow::showBriefing,
-                            onFitRoutes = surface::resetCamera, startActionLabel = "출발 전 브리핑",
+                        RouteCompareScreen(comparison, onSelect = flow::selectRoute, onStart = { id -> if (flow.comparingCurrent) flow.startComparedRoute(id) else flow.showBriefing(id) },
+                            onFitRoutes = surface::fitRoute, startActionLabel = "안내 시작",
+                            weatherByRoute = flow.plan?.briefings?.mapValues { it.value.weather }.orEmpty(),
+                            departureTime = flow.plan?.departureTime,
+                            currentRemainingSeconds = flow.comparisonRemainingSeconds,
+                            onContinue = if (flow.comparingCurrent) flow::continueGuidance else null,
+                            mapControls = { MapControls(surface, !flow.voiceEnabled, flow::toggleVoice) },
                             inputEnabled = flow.parked == true,
                             startNotice = when {
                                 flow.parked != true -> "정차 상태를 확인하면 경로를 선택할 수 있어요"
@@ -151,7 +157,8 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
                             onOtherRoutes = flow::showComparison, onToggleVoice = flow::toggleVoice,
                             onEnd = flow::requestEnd, onRecenter = surface::resetCamera,
                             onToggleViewpoint = { surface.showDriverView(!surface.isDriverView) },
-                            driverView = surface.isDriverView, mapContent = { GuidanceMap(surface, guidance, it) })
+                            driverView = surface.isDriverView, speedKph = speedKph, tollWon = flow.activeTollWon,
+                            mapControls = { MapControls(surface, !flow.voiceEnabled, flow::toggleVoice) }, mapContent = { GuidanceMap(surface, guidance, it) })
                     }
                 }
             }

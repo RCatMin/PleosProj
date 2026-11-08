@@ -57,6 +57,7 @@ internal class NavigationFlowController(private val source: NavigationSource, pr
         private set
     var guiding by mutableStateOf(false)
         private set
+    private var activeWeatherMissing = false
     private var foreground = false
     private var feed: NavigationFeed? = null
     private var destination: Place? = null
@@ -66,6 +67,11 @@ internal class NavigationFlowController(private val source: NavigationSource, pr
     private var planGeneration = 0
     private var searchJob: Job? = null
     private var fromGuidance = false
+    val comparingCurrent get() = fromGuidance && guiding
+    var comparisonRemainingSeconds by mutableStateOf<Int?>(null)
+        private set
+    var activeTollWon by mutableStateOf<Int?>(null)
+        private set
 
     fun updateForeground(value: Boolean) {
         if (foreground == value) return
@@ -172,6 +178,7 @@ internal class NavigationFlowController(private val source: NavigationSource, pr
             current.plan(place) { result ->
                 if (!foreground || generation != sessionGeneration || request != planGeneration || page != NavigationPage.PLANNING) return@plan
                 result.onSuccess { next ->
+                    comparisonRemainingSeconds = if (fromGuidance) guidance?.remainingSeconds else null
                     plan = next
                     comparison = next.compare
                     page = NavigationPage.COMPARE
@@ -198,6 +205,21 @@ internal class NavigationFlowController(private val source: NavigationSource, pr
         page = NavigationPage.BRIEFING
     }
 
+    fun startComparedRoute(id: String) {
+        if (!comparingCurrent || page != NavigationPage.COMPARE || parked != true) return
+        selectRoute(id)
+        if (comparison?.selectedId == id) beginGuidance()
+    }
+
+    fun continueGuidance() {
+        if (!guiding) return
+        ++planGeneration
+        fromGuidance = false
+        comparisonRemainingSeconds = null
+        page = NavigationPage.GUIDANCE
+        feed?.voiceEnabled = voiceEnabled
+    }
+
     fun startGuidance() { if (parked == true && page == NavigationPage.BRIEFING) beginGuidance() }
     fun drivingStarted() { if (parked == false && page == NavigationPage.BRIEFING) beginGuidance() }
     private fun beginGuidance() {
@@ -206,6 +228,8 @@ internal class NavigationFlowController(private val source: NavigationSource, pr
         if (starting) return
         starting = true
         routeName = route.name
+        activeTollWon = route.tollWon
+        activeWeatherMissing = plan?.weatherMissing == true
         current.voiceEnabled = voiceEnabled
         runCatching { current.startGuidance(route.id) }.onFailure {
             starting = false
@@ -263,9 +287,13 @@ internal class NavigationFlowController(private val source: NavigationSource, pr
         } else {
             guidance = state.copy(
                 alert = if (state.alert != null && state.alert == acknowledged) null else state.alert,
-                weather = if (plan?.weatherMissing == true) emptyList() else state.weather,
+                weather = if (activeWeatherMissing) emptyList() else state.weather,
             )
-            if (starting) page = NavigationPage.GUIDANCE
+            if (starting) {
+                page = NavigationPage.GUIDANCE
+                fromGuidance = false
+                comparisonRemainingSeconds = null
+            }
             starting = false
             guiding = true
         }
@@ -274,8 +302,8 @@ internal class NavigationFlowController(private val source: NavigationSource, pr
     private fun receive(event: NavigationEvent) {
         when (event) {
             NavigationEvent.Arrived -> notice = "${lastDestination}에 도착했어요"
-            NavigationEvent.Rerouted -> { routeName = "다시 찾은"; notice = "경로를 다시 찾았어요" }
-            NavigationEvent.Detoured -> { detouring = false; routeName = "위험 회피"; notice = "위험 구간을 피하는 경로로 바꿨어요" }
+            NavigationEvent.Rerouted -> { activeTollWon = null; routeName = "다시 찾은"; notice = "경로를 다시 찾았어요" }
+            NavigationEvent.Detoured -> { activeTollWon = null; detouring = false; routeName = "위험 회피"; notice = "위험 구간을 피하는 경로로 바꿨어요" }
             NavigationEvent.DetourFailed -> { detouring = false; notice = "피해 갈 경로를 찾지 못했어요. 현재 안내를 유지합니다." }
             is NavigationEvent.Failed -> { detouring = false; notice = event.message }
         }
@@ -294,6 +322,9 @@ internal class NavigationFlowController(private val source: NavigationSource, pr
         starting = false
         detouring = false
         fromGuidance = false
+        comparisonRemainingSeconds = null
+        activeTollWon = null
+        activeWeatherMissing = false
         confirmEnd = false
         page = NavigationPage.SEARCH
     }
@@ -303,8 +334,7 @@ internal class NavigationFlowController(private val source: NavigationSource, pr
             NavigationPage.SEARCH -> { cancelSearch(); query = ""; searchContent = SearchContent.Recent }
             NavigationPage.PLANNING, NavigationPage.COMPARE -> {
                 ++planGeneration
-                page = if (fromGuidance && guiding) NavigationPage.GUIDANCE else NavigationPage.SEARCH
-                if (guiding) feed?.voiceEnabled = voiceEnabled
+                if (fromGuidance && guiding) continueGuidance() else page = NavigationPage.SEARCH
             }
             NavigationPage.BRIEFING -> page = NavigationPage.COMPARE
             NavigationPage.GUIDANCE -> requestEnd()

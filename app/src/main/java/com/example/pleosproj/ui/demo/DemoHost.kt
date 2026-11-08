@@ -17,6 +17,7 @@ import com.example.pleosproj.ui.compare.RouteCompareScreen
 import com.example.pleosproj.ui.guidance.GuidanceScreen
 import com.example.pleosproj.ui.map.GuidanceMap
 import com.example.pleosproj.ui.map.MapSurface
+import com.example.pleosproj.ui.map.MapControls
 import com.example.pleosproj.ui.map.RouteCompareMap
 import kotlinx.coroutines.launch
 
@@ -75,7 +76,9 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onExit: () -> U
                         voiceStatus = if (session.voice.enabled) "음성 안내 켜짐" else "음성 안내 꺼짐")
                     DemoPage.COMPARE -> RouteCompareScreen(session.comparison.copy(selectedId = selectedId),
                         onSelect = { id -> if (session.comparison.candidates.any { it.id == id && !it.excluded }) selectedId = id },
-                        onStart = { start() }, onFitRoutes = surface::resetCamera,
+                        onStart = { start() }, onFitRoutes = surface::fitRoute,
+                        weatherByRoute = session.comparison.candidates.associate { it.id to session.briefing.weather },
+                        mapControls = { MapControls(surface, !session.voice.enabled, session.voice::toggle) },
                         startNotice = "시연 안내는 ${session.driveRouteName} 경로로 처음부터 진행합니다",
                         mapContent = { RouteCompareMap(surface, session.comparison.copy(selectedId = selectedId), it) })
                     DemoPage.GUIDANCE -> GuidanceScreen(state, voiceMuted = !session.voice.enabled,
@@ -85,6 +88,8 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onExit: () -> U
                         onEnd = { session.pause(); confirmEnd = true },
                         onToggleViewpoint = { surface.showDriverView(!surface.isDriverView) },
                         onRecenter = surface::resetCamera, driverView = surface.isDriverView,
+                        tollWon = session.comparison.candidates.firstOrNull { it.name == session.driveRouteName }?.tollWon,
+                        mapControls = { MapControls(surface, !session.voice.enabled, session.voice::toggle) },
                         mapContent = { GuidanceMap(surface, state, it, motionFrame) })
                     DemoPage.ENDED -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {

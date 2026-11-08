@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -23,8 +22,8 @@ import com.example.pleosproj.ui.permissions.*
 import com.example.pleosproj.ui.state.Place
 import com.example.pleosproj.ui.state.SearchFailure
 
-private val Ink = androidx.compose.ui.graphics.Color(0xFF232228)
-private val Muted = androidx.compose.ui.graphics.Color(0xFF68666D)
+private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
+private val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 
 @Composable
 internal fun DestinationSearchScreen(flow: NavigationFlowController, permissions: List<AccessStatus>,
@@ -45,7 +44,7 @@ internal fun DestinationSearchScreen(flow: NavigationFlowController, permissions
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(value = flow.query, onValueChange = flow::editQuery, enabled = canInput,
                 modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(18.dp),
-                textStyle = TextStyle(fontSize = 29.sp, color = Ink),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 29.sp, color = Ink),
                 placeholder = { Text("목적지 이름이나 주소 검색", fontSize = 29.sp) },
                 trailingIcon = {
                     if (flow.query.isNotEmpty()) TextButton(onClick = { flow.editQuery("") }, enabled = canInput) {
@@ -54,7 +53,7 @@ internal fun DestinationSearchScreen(flow: NavigationFlowController, permissions
                 }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { submit() }))
             Button(onClick = { submit() }, enabled = canInput && flow.query.isNotBlank() && flow.searchContent != SearchContent.Loading,
-                colors = ButtonDefaults.buttonColors(containerColor = Ink), shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF23252B), contentColor = androidx.compose.ui.graphics.Color.White), shape = RoundedCornerShape(18.dp),
                 contentPadding = PaddingValues(horizontal = 48.dp, vertical = 24.dp)) {
                 Text("검색", fontSize = 29.sp, fontWeight = FontWeight.SemiBold)
             }
