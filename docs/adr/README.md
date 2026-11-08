@@ -19,7 +19,8 @@
 | [0004](./0004-built-in-navi-role.md) | 기본 내비와 역할 나누기 | Superseded by 0007 |
 | [0005](./0005-route-line-and-demo.md) | 경로선 표시와 시연 방식 | Superseded by 0007 |
 | [0006](./0006-sdk-fallback.md) | Pleos SDK를 쓸 수 없을 때의 대체 | Proposed |
-| [0007](./0007-own-routing.md) | 경로 계산과 장소 검색을 우리 앱이 한다 | Proposed |
+| [0007](./0007-own-routing.md) | 경로 계산과 장소 검색을 우리 앱이 한다 | Proposed (경로 계산 서비스는 0008로 대체) |
+| [0008](./0008-kakao-mobility-routing.md) | 경로 계산은 카카오모빌리티 길찾기로 한다 | Proposed |
 
 ## 템플릿
 

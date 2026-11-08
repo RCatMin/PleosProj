@@ -55,6 +55,12 @@ class RouteGuidance(
         }
     }
 
+    // 길찾기가 알려 준 막히는 구간
+    private val congestionSegments: List<ProgressSegment> = route.congestion.map {
+        ProgressSegment(if (it.heavy) SegmentKind.CONGESTION_HEAVY else SegmentKind.CONGESTION_SLOW,
+            (it.startMeters / length).coerceIn(0.0, 1.0), (it.endMeters / length).coerceIn(0.0, 1.0), it.roadName.ifBlank { null })
+    }
+
     fun state(traveled: Double, position: LatLng, heading: Double?, vehicle: VehicleSignals, now: LocalDateTime): GuidanceState {
         val ratio = (traveled / length).coerceIn(0.0, 1.0)
         val remaining = (length - traveled).coerceAtLeast(0.0)
@@ -94,7 +100,7 @@ class RouteGuidance(
                 totalMeters = length.roundToInt(),
                 segments = route.turns.filter { it.kind != TurnKind.ARRIVE }.map {
                     ProgressSegment(SegmentKind.TURN, it.atMeters / length, it.atMeters / length, it.text.ifBlank { null })
-                } + hazardSegments,
+                } + congestionSegments + hazardSegments,
             ),
             weather = weatherCards(position, elapsed, remainingSeconds),
             alert = alert(hazards, traveled),

@@ -54,6 +54,7 @@ object OsrmParser {
             roads = steps.filter { it.optString("name").isNotBlank() }
                 .groupBy { it.optString("name") }
                 .mapValues { (_, s) -> s.sumOf { it.getDouble("distance") } },
+            provider = "osrm",
         )
     }
 

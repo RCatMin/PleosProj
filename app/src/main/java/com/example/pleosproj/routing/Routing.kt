@@ -77,7 +77,8 @@ class Routing(
         val t0 = System.currentTimeMillis()
         val (weather, missing) = weatherAlong(candidates, now)
         debug("날씨: ${System.currentTimeMillis() - t0}ms")
-        val hazards = riskPoints(candidates)
+        // 길찾기가 알려 준 지하차도 같은 지점과 ITS 돌발상황을 함께 쓴다
+        val hazards = candidates.flatMap { it.hazards }.distinctBy { it.title to it.position } + riskPoints(candidates)
         val state = comparer.compare(destinationName, candidates, hazards, weather, vehicle)
         return RoutePlanResult(state, candidates, missing, hazards, weather, now)
     }
@@ -85,22 +86,28 @@ class Routing(
     // --- 후보 경로 ---
 
     private fun candidates(from: LatLng, to: LatLng, givenHeading: Double?): List<RoutePlan> {
-        // 달리는 방향을 모르면 목적지 쪽을 보고 출발한다고 본다. 반대 차로에 붙어 유턴부터 하는 경로를 막는다
-        val heading = givenHeading ?: RouteGeometry.bearing(from, to)
+        // 달리는 방향을 모르면 목적지 쪽을 보고 출발한다고 본다(OSRM이 반대 차로에 붙어 유턴부터 하는 것을 막는다).
+        // 카카오모빌리티는 이 값 없이도 출발 차로를 잘 잡으므로 실제 진행 방향을 알 때만 넘긴다
+        val heading = givenHeading ?: if (routes is OsrmClient) RouteGeometry.bearing(from, to) else null
         val found = fetch(listOf(from, to), alternatives = true, heading).toMutableList()
         if (found.isEmpty()) return emptyList()
-        // 대안이 모자라면 양옆 경유 지점으로 다른 길을 더 받아 온다
-        if (Candidates.pickDistinct(found).size < 3) {
+        // 대안이 모자라면(OSRM은 시내에서 대안을 거의 주지 않는다) 양옆 경유 지점으로 다른 길을 더 받아 온다
+        if (Candidates.pickDistinct(found).size < 2) {
             Candidates.sideVias(from, to).forEach { via ->
                 found += runCatching { fetch(listOf(from, via, to), alternatives = false, heading) }.getOrDefault(emptyList())
             }
         }
-        return Candidates.nameDistinct(Candidates.pickDistinct(found)).mapIndexed { i, r -> r.copy(id = "route-$i") }
+        val picked = Candidates.pickDistinct(found)
+        // 교통이 반영된 시간이 있으면 "추천 길·가장 빠른 길·가장 짧은 길"처럼 성격으로, 없으면(OSRM) 길 이름으로 구별한다
+        val named = if (picked.all { it.provider == "kakaomobility" }) Candidates.nameByRole(picked) else Candidates.nameDistinct(picked)
+        return named.mapIndexed { i, r -> r.copy(id = "route-$i") }
     }
 
     private fun fetch(points: List<LatLng>, alternatives: Boolean, heading: Double?): List<RoutePlan> =
         try {
             routes.route(points, alternatives, heading)
+        } catch (e: KakaoNaviParser.KakaoNaviException) {
+            throw RoutingException("길찾기 서버가 경로를 주지 않았어요", e)
         } catch (e: OsrmParser.OsrmException) {
             throw RoutingException("길찾기 서버가 경로를 주지 않았어요", e)
         } catch (e: java.io.IOException) {
@@ -203,8 +210,10 @@ class Routing(
         fun create(): Routing {
             val kma = BuildConfig.KMA_SERVICE_KEY.takeIf { it.isNotBlank() }?.let { KmaClient(it) }
             val its = BuildConfig.ITS_API_KEY.takeIf { it.isNotBlank() }?.let { ItsClient(it) }
+            val kakao = BuildConfig.KAKAO_REST_KEY.takeIf { it.isNotBlank() }?.let { KakaoNaviClient(it) }
             return Routing(
-                routes = OsrmClient(),
+                // 카카오모빌리티를 먼저 쓰고, 키가 없거나 실패하면 OSRM으로 계산한다 (ADR 0008)
+                routes = kakao?.let { FallbackRouteSource(it, OsrmClient()) } ?: OsrmClient(),
                 forecast = kma?.let { k -> { grid: KmaGridPoint -> k.forecast(grid) } },
                 warnings = kma?.let { k -> { k.warnings(LocalDateTime.now().minusDays(1)).sortedByDescending { it.issuedAt }.distinctBy { it.kind to it.level } } },
                 events = its?.let { c -> { a: Double, b: Double, cc: Double, d: Double -> c.events(a, b, cc, d) } },

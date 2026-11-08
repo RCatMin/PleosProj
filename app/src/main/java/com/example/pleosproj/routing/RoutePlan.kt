@@ -19,7 +19,16 @@ data class RoutePlan(
     val tollWon: Int = 0,
     /** 지나는 길 이름과 그 길을 달리는 거리(m). 후보 경로끼리 구별되는 이름을 붙일 때 쓴다 */
     val roads: Map<String, Double> = emptyMap(),
+    /** 길찾기가 알려 준 경로 위 위험 지점 (예: 지하차도 진입). 위험도 계산에 함께 넣는다 */
+    val hazards: List<RiskPoint> = emptyList(),
+    /** 막히는 구간 (교통 정보가 있는 길찾기만) */
+    val congestion: List<Congestion> = emptyList(),
+    /** 어느 길찾기로 계산했는지 */
+    val provider: String = "",
 )
+
+/** 막히는 구간. [startMeters]~[endMeters]는 경로 출발점부터의 거리 */
+data class Congestion(val startMeters: Double, val endMeters: Double, val heavy: Boolean, val roadName: String)
 
 /** 회전 지점. [atMeters]는 경로 출발점부터 경로선을 따라 잰 거리 */
 data class RouteTurn(val atMeters: Double, val kind: TurnKind, val text: String)
