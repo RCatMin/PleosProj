@@ -60,6 +60,8 @@ class AlertSpeechTest {
         assertEquals("지금 시간당 45밀리미터의 강한 비가 내리고 있습니다. 속도를 줄여 주세요.", AlertSpeech.sentence(rain))
         val ice = HazardAlert("caution-c1", "앞쪽 미끄럼 주의", "600m 앞 미끄러운 도로", RiskLevel.MEDIUM, false)
         assertEquals("600미터 앞 미끄러운 도로입니다. 길이 미끄러우니 천천히 가 주세요.", AlertSpeech.sentence(ice))
+        val freezing = HazardAlert("freezing-0", "앞쪽 결빙 주의", "300m 앞 결빙 사고가 잦은 곳", RiskLevel.HIGH, suggestsDetour = false)
+        assertEquals("300미터 앞 결빙 사고가 잦은 곳입니다. 길이 얼었을 수 있으니 속도를 줄여 주세요.", AlertSpeech.sentence(freezing))
     }
 
     @Test

@@ -55,6 +55,16 @@ object RiskEngine {
         )
     }
 
+    /**
+     * 위험 지점 하나의 단계. 경로 점수와 같은 계산을 쓰되, 결빙 취약 지점이 영하(또는 젖은 채 2℃ 이하)면
+     * 최소 "보통"으로 본다. 결빙은 가중치가 작아서 눈이 오지 않으면 구간 점수만으로는 "낮음"에 머물지만,
+     * 그 지점을 지나는 운전자에게는 미리 알려야 하기 때문이다.
+     */
+    fun pointBand(c: SegmentConditions, vehicle: VehicleSignals = VehicleSignals()): RiskBand {
+        val band = band(segmentScore(c, vehicle))
+        return if (icing(c, vehicle.outsideTempC) >= 0.7 && band < RiskBand.MEDIUM) RiskBand.MEDIUM else band
+    }
+
     fun band(score: Double): RiskBand = when {
         score >= W.BAND_HIGH -> RiskBand.HIGH
         score >= W.BAND_MEDIUM -> RiskBand.MEDIUM

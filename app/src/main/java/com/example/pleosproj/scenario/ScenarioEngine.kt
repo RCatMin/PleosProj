@@ -144,12 +144,12 @@ class ScenarioEngine(
 
     private fun uiHazard(h: ScenarioHazard, seconds: Double): Hazard {
         val (along, off) = hazardOnDrive.getValue(h.id)
-        val score = RiskEngine.segmentScore(conditionsAt(h, seconds), vehicleAt(seconds))
+        val band = RiskEngine.pointBand(conditionsAt(h, seconds), vehicleAt(seconds))
         return Hazard(
             id = h.id,
             kind = if (h.closedAt(seconds)) HazardKind.CLOSURE else h.kind,
             position = h.position.toGeo(),
-            level = if (h.closedAt(seconds)) RiskLevel.HIGH else RiskEngine.band(score).toLevel(),
+            level = if (h.closedAt(seconds)) RiskLevel.HIGH else band.toLevel(),
             title = h.title,
             detail = h.detail,
             ratioOnRoute = if (off <= hazardRadiusMeters) along / driveLength else null,

@@ -29,6 +29,10 @@ data class RiskPoint(
     val icingZone: Boolean = false,
     /** 이 시각(출발 기준 초)부터 통제. 이미 통제 중이면 0, 통제가 아니면 null */
     val closedFromSeconds: Int? = null,
+    /** 경로에서 이만큼 안에 있으면 그 경로의 위험 지점으로 본다. null이면 비교기의 기본 반경 */
+    val radiusMeters: Double? = null,
+    /** 결빙 사고 다발지역처럼 통계로 뽑은 지점인지. 요약에서 이름 대신 개수로 말한다 */
+    val statistical: Boolean = false,
 ) {
     fun closedAt(seconds: Double) = closedFromSeconds != null && seconds >= closedFromSeconds
 }
@@ -102,7 +106,7 @@ class RouteComparer(private val hazardRadiusMeters: Double = 150.0) {
 
     private fun onRoute(route: RoutePlan, hazards: List<RiskPoint>) = hazards.mapNotNull { h ->
         val (along, off) = RouteGeometry.project(route.line, h.position)
-        if (off <= hazardRadiusMeters) h to along else null
+        if (off <= (h.radiusMeters ?: hazardRadiusMeters)) h to along else null
     }
 
     /** 1km 구간마다 그 구간을 지날 시각의 날씨와 근처 위험 지점으로 조건을 만든다 */
@@ -134,7 +138,7 @@ class RouteComparer(private val hazardRadiusMeters: Double = 150.0) {
             rainMmPerHour = w.rainMmPerHour, snowing = w.snowing, temperatureC = w.temperatureC, warning = w.warning,
             vulnerability = h.vulnerability, icingZone = h.icingZone,
         )
-        return RiskEngine.band(RiskEngine.segmentScore(c, vehicle)).toLevel()
+        return RiskEngine.pointBand(c, vehicle).toLevel()
     }
 
     private fun uiHazard(h: RiskPoint, along: Double, p: Prepared, weather: WeatherAlong, vehicle: VehicleSignals, start: Double): Hazard {
@@ -164,14 +168,19 @@ class RouteComparer(private val hazardRadiusMeters: Double = 150.0) {
             return closing.joinToString { it.title } + if (closing.all { it.closedAt(start) }) " 통제" else " 통제 예정"
         }
         val risky = p.near.filter { (h, along) ->
-            h.vulnerability != Vulnerability.NONE || h.icingZone || levelAt(h, p.passAt(along, start), weather, vehicle) >= RiskLevel.MEDIUM
+            !h.statistical && (h.vulnerability != Vulnerability.NONE || h.icingZone ||
+                levelAt(h, p.passAt(along, start), weather, vehicle) >= RiskLevel.MEDIUM)
         }.map { it.first }
-        return when {
+        // 결빙 사고 다발지역은 계절과 상관없이 늘 개수로 알린다 (예시 앱의 "결빙 사고가 잦은 곳 N곳")
+        val icy = hazards.count { it.statistical && it.icingZone }
+        val main = when {
             risky.isNotEmpty() -> risky.joinToString { it.title } + " 지남"
             // 위험 지점은 없지만 경로 전체에 비가 강하면 그렇게 말한다
             routeLevel >= RiskLevel.MEDIUM -> "경로 전체 강한 비"
+            icy > 0 -> null
             else -> "위험 구간 없음"
         }
+        return listOfNotNull(main, if (icy > 0) "결빙 사고가 잦은 곳 ${icy}곳" else null).joinToString(" · ")
     }
 
     companion object {

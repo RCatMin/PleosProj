@@ -3,6 +3,7 @@ package com.example.pleosproj.routing
 import com.example.pleosproj.risk.LatLng
 import com.example.pleosproj.risk.RouteGeometry
 import com.example.pleosproj.risk.VehicleSignals
+import com.example.pleosproj.traffic.FreezingSpot
 import com.example.pleosproj.traffic.TrafficEvent
 import com.example.pleosproj.ui.state.HazardKind
 import com.example.pleosproj.weather.PrecipType
@@ -88,5 +89,44 @@ class RoutingTest {
         assertEquals(listOf(a.id, osrm[1].id), Candidates.pickDistinct(listOf(copy, a, osrm[1])).map { it.id })
         assertTrue(Candidates.overlap(a, copy) > 0.99)
         assertTrue(Candidates.overlap(a, osrm[1]) < 0.5)
+    }
+
+    @Test
+    fun `경로가 결빙 사고 다발지역을 지나면 위험 지점과 요약 개수에 나온다`() {
+        val fast = osrm[0]
+        val onRoute = RouteGeometry.pointAt(fast.line, RouteGeometry.lengthMeters(fast.line) * 0.3)
+        // 경로에서 150m쯤 떨어진 다발지역 중심(원 안을 지남)과 멀리 떨어진 곳
+        val near = FreezingSpot("궁내동", LatLng(onRoute.lat + 0.0013, onRoute.lng), 3, listOf(2023))
+        val far = FreezingSpot("먼 곳", LatLng(37.30, 126.90), 5, listOf(2023))
+        val r = Routing(source, rain(0.0), null, null, freezing = { listOf(near, far) }).plan(from, to, "삼성역", VehicleSignals(), now = now)
+        assertEquals(1, r.hazards.count { it.kind == HazardKind.ICE })
+        val hit = r.compare.candidates.filter { c -> c.hazards.any { it.kind == HazardKind.ICE } }
+        assertTrue(hit.isNotEmpty())
+        hit.forEach { assertTrue(it.riskSummary, it.riskSummary.endsWith("결빙 사고가 잦은 곳 1곳")) }
+        val ice = hit.first().hazards.first { it.kind == HazardKind.ICE }
+        assertTrue(ice.detail.contains("도로교통공단"))
+        // 18℃에서는 위험하지 않다
+        assertEquals(com.example.pleosproj.ui.state.RiskLevel.NONE, ice.level)
+    }
+
+    @Test
+    fun `영하이면 결빙 사고 다발지역의 위험도가 오른다`() {
+        val fast = osrm[0]
+        val spot = FreezingSpot("궁내동", RouteGeometry.pointAt(fast.line, RouteGeometry.lengthMeters(fast.line) * 0.3), 3, listOf(2023))
+        val cold = { grid: com.example.pleosproj.weather.KmaGridPoint ->
+            (0..5).map { h -> WeatherForecast(grid, now.withMinute(0).plusHours(h.toLong()), -3.0, 0.0, PrecipType.NONE, 1, 0.0) }
+        }
+        val warm = Routing(source, rain(0.0), null, null, freezing = { listOf(spot) }).plan(from, to, "삼성역", VehicleSignals(), now = now)
+        val r = Routing(source, cold, null, null, freezing = { listOf(spot) }).plan(from, to, "삼성역", VehicleSignals(), now = now)
+        val ice = r.compare.candidates.flatMap { it.hazards }.first { it.kind == HazardKind.ICE }
+        assertTrue(ice.level >= com.example.pleosproj.ui.state.RiskLevel.MEDIUM)
+        val id = r.compare.candidates.first { c -> c.hazards.any { it.kind == HazardKind.ICE } }.id
+        assertTrue(r.compare.candidates.first { it.id == id }.riskScore > warm.compare.candidates.first { it.id == id }.riskScore)
+    }
+
+    @Test
+    fun `결빙 다발지역을 못 받아도 경로는 계산한다`() {
+        val r = Routing(source, rain(0.0), null, null, freezing = { throw java.io.IOException("끊김") }).plan(from, to, "삼성역", VehicleSignals(), now = now)
+        assertEquals(2, r.routes.size)
     }
 }
