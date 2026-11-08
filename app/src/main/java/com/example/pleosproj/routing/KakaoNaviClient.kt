@@ -47,13 +47,30 @@ class KakaoNaviClient(private val restKey: String, private val baseUrl: String =
     }
 }
 
-/** 먼저 [primary]로 계산하고, 실패하면 [fallback]으로 계산한다. 대체 여부는 [RoutePlan.provider]로 알 수 있다 */
+/**
+ * 먼저 [primary]로 계산하고, 실패하면 [fallback]으로 계산한다. 대체 여부는 [RoutePlan.provider]로,
+ * 대체한 까닭은 [RoutePlan.fallbackReason]으로 알 수 있다.
+ */
 class FallbackRouteSource(private val primary: RouteSource, private val fallback: RouteSource) : RouteSource {
-    override fun route(points: List<LatLng>, alternatives: Boolean, startBearing: Double?): List<RoutePlan> =
-        try {
-            primary.route(points, alternatives, startBearing).ifEmpty { fallback.route(points, alternatives, startBearing) }
+    override fun route(points: List<LatLng>, alternatives: Boolean, startBearing: Double?): List<RoutePlan> {
+        val reason = try {
+            val routes = primary.route(points, alternatives, startBearing)
+            if (routes.isNotEmpty()) return routes
+            "카카오모빌리티가 경로를 주지 않음"
         } catch (e: Exception) {
-            runCatching { android.util.Log.w("Routing", "카카오모빌리티 실패, OSRM으로 계산: ${e.message}") }
-            fallback.route(points, alternatives, startBearing).map { it.copy(provider = "osrm") }
+            reasonOf(e)
         }
+        runCatching { android.util.Log.w("Routing", "OSRM으로 대신 계산: $reason") }
+        return fallback.route(points, alternatives, startBearing).map { it.copy(provider = "osrm", fallbackReason = reason) }
+    }
+
+    companion object {
+        /** 키 거절과 사용량 초과를 구분해서 알린다 */
+        fun reasonOf(e: Exception): String = when ((e as? KakaoNaviParser.KakaoNaviException)?.code) {
+            401, 403 -> "카카오모빌리티 키가 거절됨"
+            429 -> "카카오모빌리티 사용량 초과"
+            null -> if (e is java.io.IOException) "카카오모빌리티 연결 실패" else "카카오모빌리티 오류"
+            else -> "카카오모빌리티 오류 (${(e as KakaoNaviParser.KakaoNaviException).code})"
+        }
+    }
 }

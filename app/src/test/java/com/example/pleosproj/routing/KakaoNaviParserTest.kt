@@ -67,6 +67,14 @@ class KakaoNaviParserTest {
         val source = FallbackRouteSource({ _, _, _ -> throw KakaoNaviParser.KakaoNaviException(429, "한도 초과") }, { _, _, _ -> osrm })
         val got = source.route(listOf(osrm[0].line.first(), osrm[0].line.last()), true, null)
         assertTrue(got.all { it.provider == "osrm" })
+        assertEquals("카카오모빌리티 사용량 초과", got.first().fallbackReason)
+    }
+
+    @Test
+    fun `키 거절과 사용량 초과를 구분한다`() {
+        assertEquals("카카오모빌리티 키가 거절됨", FallbackRouteSource.reasonOf(KakaoNaviParser.KakaoNaviException(401, "")))
+        assertEquals("카카오모빌리티 사용량 초과", FallbackRouteSource.reasonOf(KakaoNaviParser.KakaoNaviException(429, "")))
+        assertEquals("카카오모빌리티 연결 실패", FallbackRouteSource.reasonOf(java.io.IOException()))
     }
 
     @Test

@@ -30,6 +30,8 @@ data class RoutePlanResult(
     val hazards: List<RiskPoint> = emptyList(),
     val weather: WeatherAlong = WeatherAlong { _, _ -> WeatherSample(0.0, false, 15.0, WarningLevel.NONE) },
     val plannedAt: LocalDateTime = LocalDateTime.now(),
+    /** 카카오모빌리티 대신 OSRM으로 계산했으면 그 까닭 (교통이 반영되지 않은 시간임을 알릴 때 쓴다). 아니면 null */
+    val fallbackReason: String? = null,
 )
 
 /**
@@ -80,7 +82,8 @@ class Routing(
         // 길찾기가 알려 준 지하차도 같은 지점과 ITS 돌발상황을 함께 쓴다
         val hazards = candidates.flatMap { it.hazards }.distinctBy { it.title to it.position } + riskPoints(candidates)
         val state = comparer.compare(destinationName, candidates, hazards, weather, vehicle)
-        return RoutePlanResult(state, candidates, missing, hazards, weather, now)
+        return RoutePlanResult(state, candidates, missing, hazards, weather, now,
+            fallbackReason = candidates.firstNotNullOfOrNull { it.fallbackReason })
     }
 
     // --- 후보 경로 ---

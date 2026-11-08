@@ -25,6 +25,8 @@ data class RoutePlan(
     val congestion: List<Congestion> = emptyList(),
     /** 어느 길찾기로 계산했는지 */
     val provider: String = "",
+    /** 카카오모빌리티 대신 OSRM으로 계산했을 때 그 까닭. 아니면 null */
+    val fallbackReason: String? = null,
 )
 
 /** 막히는 구간. [startMeters]~[endMeters]는 경로 출발점부터의 거리 */
