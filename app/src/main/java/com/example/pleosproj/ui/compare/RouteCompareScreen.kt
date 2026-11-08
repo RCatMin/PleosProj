@@ -43,6 +43,8 @@ fun RouteCompareScreen(
     mapContent: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
     startNotice: String? = null,
+    startActionLabel: String = "안내 시작",
+    inputEnabled: Boolean = true,
 ) {
     val selected = state.selectedRoute()
     Column(modifier.fillMaxSize().background(Color(0xFFF7F7F8))) {
@@ -83,7 +85,7 @@ fun RouteCompareScreen(
         } else Row(Modifier.fillMaxWidth().selectableGroup().padding(start = 24.dp, top = 20.dp, end = 24.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             state.candidates.forEach { candidate ->
-                RouteCard(candidate, selected = candidate.id == selected?.id,
+                RouteCard(candidate, selected = candidate.id == selected?.id, inputEnabled = inputEnabled,
                     recommended = candidate.id == state.recommendedId,
                     onClick = { onSelect(candidate.id) }, modifier = Modifier.weight(1f))
             }
@@ -99,10 +101,10 @@ fun RouteCompareScreen(
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                     startNotice?.let { Text(it, fontSize = 21.sp, lineHeight = 30.sp, color = Purple) }
                 }
-                Button(onClick = { selected?.let { onStart(it.id) } }, enabled = selected != null,
+                Button(onClick = { selected?.let { onStart(it.id) } }, enabled = selected != null && inputEnabled,
                     shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.buttonColors(containerColor = Ink),
                     contentPadding = PaddingValues(horizontal = 72.dp, vertical = 24.dp)) {
-                    Text("안내 시작", fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
+                    Text(startActionLabel, fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -110,7 +112,8 @@ fun RouteCompareScreen(
 }
 
 @Composable
-private fun RouteCard(candidate: RouteCandidate, selected: Boolean, recommended: Boolean, onClick: () -> Unit, modifier: Modifier) {
+private fun RouteCard(candidate: RouteCandidate, selected: Boolean, recommended: Boolean, onClick: () -> Unit, modifier: Modifier,
+    inputEnabled: Boolean) {
     val color = when (candidate.riskLevel) {
         RiskLevel.NONE, RiskLevel.LOW -> Color(0xFF16776F)
         RiskLevel.MEDIUM -> Color(0xFF886344)
@@ -122,7 +125,7 @@ private fun RouteCard(candidate: RouteCandidate, selected: Boolean, recommended:
         RiskLevel.MEDIUM -> "주의"
         RiskLevel.HIGH -> "높음"
     }
-    Surface(modifier.selectable(selected = selected, enabled = !candidate.excluded, role = Role.RadioButton, onClick = onClick)
+    Surface(modifier.selectable(selected = selected, enabled = !candidate.excluded && inputEnabled, role = Role.RadioButton, onClick = onClick)
         .semantics { stateDescription = if (candidate.excluded) "통제로 제외, 선택 불가" else if (selected) "선택됨" else "선택 안 됨" },
         shape = RoundedCornerShape(20.dp),
         color = if (selected) Color(0xFFF4F0FC) else if (candidate.excluded) Color(0xFFF0EFF2) else Color.White,

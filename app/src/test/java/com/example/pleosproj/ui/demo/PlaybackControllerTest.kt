@@ -94,6 +94,22 @@ class PlaybackControllerTest {
         assertEquals(0.0, controller.presentationSeconds, 0.0)
     }
 
+    @Test
+    fun oldPlayerCallbacksDoNotReachTheVoiceListenerAfterSpeedChangeOrDisposal() {
+        val states = mutableListOf<GuidanceState>()
+        val controller = PlaybackController(PreviewStates.guidanceScenario, 1080,
+            onGuidance = { states += it }) { rate, callback -> FakePlayer(rate, callback).also(players::add) }
+        players.single().emit(20.0)
+        val first = players.single()
+        controller.changeSpeed(2.0)
+        val count = states.size
+        first.emit(500.0)
+        assertEquals(count, states.size)
+        controller.dispose()
+        players.last().emit(600.0)
+        assertEquals(count, states.size)
+    }
+
     private class FakePlayer(val rate: Double, val callback: (Double, GuidanceState) -> Unit) : DemoPlayer {
         override var seconds = 0.0
         var running = false
