@@ -82,7 +82,7 @@ fun GuidanceScreen(
             }
         }
         RouteProgressRail(state.progress, state.remainingMeters,
-            Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = 100.dp, bottom = 130.dp).width(146.dp).fillMaxHeight())
+            Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = 100.dp, bottom = 130.dp).width(146.dp).fillMaxHeight(), hazards = state.hazards)
         Column(Modifier.align(Alignment.TopEnd).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (mapControls != null) mapControls()
             else {

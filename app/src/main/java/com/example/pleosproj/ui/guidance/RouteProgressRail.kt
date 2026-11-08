@@ -30,7 +30,7 @@ internal fun durationText(seconds: Int): String {
 }
 
 @Composable
-internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, modifier: Modifier = Modifier) {
+internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, modifier: Modifier = Modifier, hazards: List<Hazard> = emptyList()) {
     val current = progress.currentRatio.coerceIn(0.0, 1.0)
     val colors = androidx.compose.material3.MaterialTheme.colorScheme
     Column(modifier, horizontalAlignment = Alignment.End) {
@@ -51,7 +51,7 @@ internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, mo
                 drawCircle(colors.surface, 15.dp.toPx(), Offset(x, y(current)))
                 drawCircle(Color(0xFF7145D6), 10.dp.toPx(), Offset(x, y(current)))
             }
-            railLabels(progress, height.value).forEach { item ->
+            railLabels(progressForLabels(progress, hazards), height.value).forEach { item ->
                 val segment = item.segment
                 val distance = ((segment.startRatio - current).coerceAtLeast(0.0) * progress.totalMeters).toInt()
                 Row(Modifier.fillMaxWidth().offset(y = item.top.dp), horizontalArrangement = Arrangement.End,
@@ -60,7 +60,8 @@ internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, mo
                         Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.End) {
                             Text(segment.label ?: if (segment.kind == SegmentKind.HAZARD) "위험" else "앞쪽 구간", fontSize = 15.sp,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis, color = segmentColor(segment))
-                            Text(distanceText(distance), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                            Text(if (segment.endRatio > segment.startRatio && current >= segment.startRatio) "지나는 중" else distanceText(distance),
+                                fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                     if (segment.kind == SegmentKind.HAZARD) HazardGlyph(segment.hazardKind ?: HazardKind.FLOOD, Modifier.size(32.dp))
@@ -72,6 +73,15 @@ internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, mo
         }
         Text("출발", fontSize = 16.sp, color = colors.onSurfaceVariant)
     }
+}
+
+// 색칠한 위험 구간의 시작과 실제 위험 지점은 다르다. 거리 이름표는 지점 좌표의 비율을 쓴다.
+internal fun progressForLabels(progress: RouteProgress, hazards: List<Hazard>): RouteProgress {
+    val points = hazards.mapNotNull { hazard -> hazard.ratioOnRoute?.let { ratio ->
+        ProgressSegment(SegmentKind.HAZARD, ratio, ratio, hazard.title, hazard.kind)
+    } }
+    if (points.isEmpty()) return progress
+    return progress.copy(segments = progress.segments.filterNot { it.kind == SegmentKind.HAZARD } + points)
 }
 
 private fun segmentColor(segment: ProgressSegment): Color = when (segment.kind) {

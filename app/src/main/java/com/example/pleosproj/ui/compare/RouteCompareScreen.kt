@@ -109,7 +109,7 @@ private fun RouteCard(candidate: RouteCandidate, selected: Boolean, recommended:
     Surface(Modifier.fillMaxWidth().animateContentSize().selectable(selected = selected,
         enabled = !candidate.excluded && inputEnabled, role = Role.RadioButton, onClick = onClick)
         .semantics { stateDescription = if (candidate.excluded) "통제로 제외, 선택 불가" else if (selected) "선택됨" else "선택 안 됨" },
-        shape = RoundedCornerShape(22.dp), color = background,
+        shape = RoundedCornerShape(22.dp), color = background, contentColor = colors.onSurface,
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) colors.primary else colors.outlineVariant)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
