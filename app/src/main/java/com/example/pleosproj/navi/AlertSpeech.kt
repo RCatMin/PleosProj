@@ -46,6 +46,8 @@ class AlertSpeech {
                 alert.suggestsDetour && m != null ->
                     "${TurnSpeech.distance(m.groupValues[1].toInt())} 앞 ${m.groupValues[2].trim().removeSuffix("통제").trim().ifEmpty { "도로" }} 구간이 통제되어 있습니다. 우회할까요?"
                 where != null && alert.title.contains("침수") -> "${where}에 침수 우려가 있습니다. 속도를 줄여 주세요."
+                // "300미터 앞 결빙 사고가 잦은 곳입니다. 속도를 줄여 주세요."
+                where != null && alert.title.contains("결빙") -> "${where}입니다. 길이 얼었을 수 있으니 속도를 줄여 주세요."
                 where != null && alert.title.contains("미끄럼") -> "${where}입니다. 길이 미끄러우니 천천히 가 주세요."
                 where != null && alert.title.contains("안개") -> "${where}입니다. 앞차와 거리를 넉넉히 두세요."
                 where != null -> "${where}입니다. 주의해서 지나가 주세요."

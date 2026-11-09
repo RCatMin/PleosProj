@@ -8,6 +8,9 @@ import com.example.pleosproj.risk.LatLng
 import com.example.pleosproj.risk.RouteGeometry
 import com.example.pleosproj.risk.VehicleSignals
 import com.example.pleosproj.risk.WarningLevel
+import com.example.pleosproj.traffic.FreezingClient
+import com.example.pleosproj.traffic.FreezingSpot
+import com.example.pleosproj.traffic.FreezingSpotFinder
 import com.example.pleosproj.traffic.TrafficEvent
 import com.example.pleosproj.ui.state.HazardKind
 import com.example.pleosproj.ui.state.RouteCompareState
@@ -46,6 +49,8 @@ class Routing(
     private val warnings: (() -> List<WeatherWarning>)?,
     private val events: ((minLat: Double, minLng: Double, maxLat: Double, maxLng: Double) -> List<TrafficEvent>)?,
     private val comparer: RouteComparer = RouteComparer(),
+    /** 경로들이 지나는 곳의 결빙 사고 다발지역 (PLE-40). 없으면 빼고 계산한다 */
+    private val freezing: ((List<List<LatLng>>) -> List<FreezingSpot>)? = null,
 ) {
     /** [from]에서 [to]까지 후보 경로와 위험도 비교. [heading]은 지금 달리는 방향(모르면 null) */
     fun plan(
@@ -80,7 +85,8 @@ class Routing(
         val (weather, missing) = weatherAlong(candidates, now)
         debug("날씨: ${System.currentTimeMillis() - t0}ms")
         // 길찾기가 알려 준 지하차도 같은 지점과 ITS 돌발상황을 함께 쓴다
-        val hazards = candidates.flatMap { it.hazards }.distinctBy { it.title to it.position } + riskPoints(candidates)
+        val hazards = candidates.flatMap { it.hazards }.distinctBy { it.title to it.position } + riskPoints(candidates) +
+            freezingPoints(candidates)
         val state = comparer.compare(destinationName, candidates, hazards, weather, vehicle)
         return RoutePlanResult(state, candidates, missing, hazards, weather, now,
             fallbackReason = candidates.firstNotNullOfOrNull { it.fallbackReason })
@@ -116,6 +122,20 @@ class Routing(
         } catch (e: java.io.IOException) {
             throw RoutingException("길찾기 서버에 연결하지 못했어요. 네트워크를 확인해 주세요", e)
         }
+
+    // --- 결빙 사고 다발지역 ---
+
+    /** 어느 후보 경로든 다발지역 원 안을 지나면 결빙 취약 위험 지점으로 넣는다. 못 받으면 빼고 계산한다 */
+    private fun freezingPoints(candidates: List<RoutePlan>): List<RiskPoint> {
+        val find = freezing ?: return emptyList()
+        val t0 = System.currentTimeMillis()
+        val spots = runCatching { find(candidates.map { it.line }) }
+            .onFailure { warn("결빙 사고 다발지역을 받지 못함: ${it.message}") }.getOrDefault(emptyList())
+        return spots.filter { s ->
+            candidates.any { RouteGeometry.project(it.line, s.position).second <= FreezingSpotFinder.NEAR_ROUTE_METERS }
+        }.mapIndexed { i, s -> freezingPoint(i, s) }
+            .also { debug("결빙 다발지역 ${spots.size}곳 중 경로 근처 ${it.size}곳: ${System.currentTimeMillis() - t0}ms") }
+    }
 
     // --- 날씨 ---
 
@@ -175,6 +195,19 @@ class Routing(
     }
 
     companion object {
+        /** 앱이 켜져 있는 동안 같이 쓴다 (받은 자료를 다시 받지 않게) */
+        @Volatile private var finder: FreezingSpotFinder? = null
+
+        /** 결빙 다발지역은 시·군·구 코드가 필요해서 카카오 키와 공공데이터포털 키가 모두 있어야 한다. 최근 5년 자료를 합친다 */
+        private fun freezingFinder(kakaoKey: String, dataKey: String): FreezingSpotFinder? {
+            if (kakaoKey.isBlank() || dataKey.isBlank()) return null
+            finder?.let { return it }
+            val region = KakaoRegion(kakaoKey)
+            val client = FreezingClient(dataKey)
+            val last = LocalDateTime.now().year - 1
+            return FreezingSpotFinder(region::sigunguAt, client::spots, (last - 4..last).toList()).also { finder = it }
+        }
+
         private const val TAG = "Routing"
 
         // 단위 테스트(JVM)에서는 android.util.Log가 없으므로 실패해도 넘어간다
@@ -209,6 +242,19 @@ class Routing(
             )
         }
 
+        internal fun freezingPoint(i: Int, s: FreezingSpot) = RiskPoint(
+            id = "freezing-$i",
+            kind = HazardKind.ICE,
+            position = s.position,
+            title = "결빙 사고가 잦은 곳",
+            detail = "${s.name} · 결빙 사고 ${s.accidents}건 (도로교통공단 ${
+                if (s.years.size == 1) "${s.years.first()}" else "${s.years.first()}~${s.years.last()}"
+            }년 통계)",
+            icingZone = true,
+            radiusMeters = FreezingSpotFinder.NEAR_ROUTE_METERS,
+            statistical = true,
+        )
+
         /** 실제 연결: OSRM 공개 서버, 기상청, ITS. 키가 없으면 그 부분만 빼고 계산한다 */
         fun create(): Routing {
             val kma = BuildConfig.KMA_SERVICE_KEY.takeIf { it.isNotBlank() }?.let { KmaClient(it) }
@@ -220,6 +266,7 @@ class Routing(
                 forecast = kma?.let { k -> { grid: KmaGridPoint -> k.forecast(grid) } },
                 warnings = kma?.let { k -> { k.warnings(LocalDateTime.now().minusDays(1)).sortedByDescending { it.issuedAt }.distinctBy { it.kind to it.level } } },
                 events = its?.let { c -> { a: Double, b: Double, cc: Double, d: Double -> c.events(a, b, cc, d) } },
+                freezing = freezingFinder(kakaoKey = BuildConfig.KAKAO_REST_KEY, dataKey = BuildConfig.KMA_SERVICE_KEY)?.let { f -> f::along },
             )
         }
     }

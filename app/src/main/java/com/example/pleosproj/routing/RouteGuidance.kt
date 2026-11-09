@@ -111,7 +111,7 @@ class RouteGuidance(
         if (h.closedAt(seconds)) return RiskLevel.HIGH
         val w = weather.at(h.position, seconds)
         val c = SegmentConditions(w.rainMmPerHour, w.snowing, w.temperatureC, w.warning, h.vulnerability, h.icingZone)
-        return RiskEngine.band(RiskEngine.segmentScore(c, vehicle)).toLevel()
+        return RiskEngine.pointBand(c, vehicle).toLevel()
     }
 
     /** 앞쪽 [alertAheadMeters] 안의 가장 가까운 "보통" 이상 위험 지점. 통제면 우회를 제안한다 */

@@ -101,4 +101,14 @@ class RiskEngineTest {
         assertNull(r.recommendedId)
         assertTrue(r.suggestPostpone)
     }
+
+    @Test
+    fun `결빙 취약 지점은 영하면 최소 보통이다`() {
+        val icy = SegmentConditions(temperatureC = -3.0, icingZone = true)
+        assertEquals(RiskBand.LOW, RiskEngine.band(RiskEngine.segmentScore(icy)))
+        assertEquals(RiskBand.MEDIUM, RiskEngine.pointBand(icy))
+        assertEquals(RiskBand.NONE, RiskEngine.pointBand(icy.copy(temperatureC = 10.0)))
+        // 차에서 읽은 외기온도가 있으면 그 값을 쓴다
+        assertEquals(RiskBand.NONE, RiskEngine.pointBand(icy, VehicleSignals(outsideTempC = 8.0)))
+    }
 }
