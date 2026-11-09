@@ -11,7 +11,8 @@ import com.example.pleosproj.scenario.ScenarioPlayer
 import com.example.pleosproj.navi.GuidanceVoice
 
 // 재생기와 화면을 조립하는 연결부다. 엔진이 만든 화면 상태를 그대로 전달한다.
-internal class DemoSession(context: Context) {
+internal class DemoSession(context: Context, scenarioId: String) {
+    private val scenario = ScenarioPlayer.load(context, scenarioId)
     val voice = DemoVoiceController {
         val delegate = GuidanceVoice(context)
         object : DemoSpeech {
@@ -23,7 +24,6 @@ internal class DemoSession(context: Context) {
             override fun release() = delegate.release()
         }
     }
-    private val scenario = ScenarioPlayer.load(context, "rain-commute")
     private val engine = ScenarioEngine(scenario)
     val title = scenario.title
     val driveRouteId = scenario.driveRouteId
