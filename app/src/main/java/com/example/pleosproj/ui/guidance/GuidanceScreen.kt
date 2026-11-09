@@ -69,7 +69,7 @@ fun GuidanceScreen(
                 }
                 FacilityPanel(state)
             }
-            WeatherPanel(state.weather, state.mode == DriveMode.SCENARIO)
+            WeatherPanel(state.weather, state.remainingMeters)
             Surface(shape = RoundedCornerShape(24.dp), shadowElevation = 2.dp) {
                 Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -180,39 +180,35 @@ private fun AlertCard(alert: HazardAlert, hazard: Hazard?, progress: RouteProgre
 
 @Composable
 private fun FacilityPanel(state: GuidanceState) {
+    if (state.facilities.isEmpty()) return
     val colors = MaterialTheme.colorScheme
-    val facilities = (listOfNotNull(state.nextTurn) + state.upcomingTurns)
-        .filter { it.kind in listOf(TurnKind.ENTER_HIGHWAY, TurnKind.EXIT_HIGHWAY, TurnKind.TOLLGATE) }.take(2)
     Surface(shape = RoundedCornerShape(22.dp), shadowElevation = 1.dp) {
-        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            if (facilities.isNotEmpty()) facilities.forEach { item ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(if (item.kind == TurnKind.TOLLGATE) "TG" else "IC", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = ManeuverBlue)
-                    Text(item.text, Modifier.weight(1f), fontSize = 21.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(distanceText(item.distanceMeters), fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("앞으로 지날 시설", fontSize = 13.sp, color = colors.onSurfaceVariant)
+            state.facilities.forEach { item ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(when (item.kind) {
+                        FacilityKind.IC -> "IC"
+                        FacilityKind.JC -> "JC"
+                        FacilityKind.TOLLGATE -> "TG"
+                        FacilityKind.REST_AREA -> "휴게소"
+                        FacilityKind.ROADSIDE_STOP -> "쉼터"
+                    }, Modifier.width(44.dp), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = ManeuverBlue)
+                    Text(item.name, Modifier.weight(1f), fontSize = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(distanceText(item.distanceMeters), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                 }
-            } else if (state.mode == DriveMode.SCENARIO) {
-                Text("IC·휴게소 · 표시 예시", fontSize = 12.sp, color = colors.onSurfaceVariant)
-                Row { Text("IC  성남IC", Modifier.weight(1f), fontSize = 18.sp); Text("2.4km", fontSize = 21.sp, fontWeight = FontWeight.SemiBold) }
-                Row { Text("휴  성남졸음쉼터", Modifier.weight(1f), fontSize = 18.sp); Text("3.2km", fontSize = 21.sp, fontWeight = FontWeight.SemiBold) }
-            } else {
-                Text("IC·휴게소", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text("시설 정보 연결 예정", fontSize = 14.sp, color = colors.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-private fun WeatherPanel(weather: List<WeatherCard>, example: Boolean) {
+private fun WeatherPanel(weather: List<WeatherCard>, remainingMeters: Int) {
     val colors = MaterialTheme.colorScheme
-    // 실제 예보가 없는 거리에는 값을 복제하지 않는다. 시연에서만 예시임을 밝히고 배치를 보여 준다.
-    val slots = if (example) listOf(
-        weather.firstOrNull(), weather.getOrNull(1)?.copy(label = "10km 앞"), weather.getOrNull(1)?.copy(label = "20km 앞")
-    ) else listOf(weather.firstOrNull { it.label == "지금" }, weather.firstOrNull { it.label == "10km 앞" }, weather.firstOrNull { it.label == "20km 앞" })
+    val slots = guidanceWeatherSlots(weather, remainingMeters)
     Surface(shape = RoundedCornerShape(22.dp), shadowElevation = 2.dp) {
         Column(Modifier.padding(12.dp)) {
-            if (example) Text("거리별 날씨 · 표시 예시", fontSize = 11.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            Text("거리별 날씨", fontSize = 11.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
             Row(Modifier.fillMaxWidth()) {
                 slots.forEachIndexed { index, item ->
                     if (index > 0) VerticalDivider(Modifier.height(108.dp), color = colors.outlineVariant)

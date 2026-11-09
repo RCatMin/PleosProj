@@ -82,7 +82,6 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onChooseScenari
                     DemoPage.COMPARE -> RouteCompareScreen(session.comparison.copy(selectedId = selectedId),
                         onSelect = { id -> if (session.comparison.candidates.any { it.id == id && !it.excluded }) selectedId = id },
                         onStart = { start() }, onFitRoutes = surface::fitRoute,
-                        weatherByRoute = session.comparison.candidates.associate { it.id to session.briefing.weather },
                         mapControls = { MapControls(surface, !session.voice.enabled, session.voice::toggle) },
                         onBack = { page = DemoPage.BRIEFING },
                         toolbar = { DemoMapToolbar(session, onReset = { acknowledgedId = null; session.reset() }, onChooseScenario = ::chooseScenario, onExit = onExit) },

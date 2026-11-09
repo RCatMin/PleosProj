@@ -114,7 +114,7 @@ fun BriefingScreen(
                                     fontSize = 26.sp, lineHeight = 36.sp, color = Muted)
                             }
                         } else LazyColumn(verticalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.fillMaxSize()) {
-                            itemsIndexed(weather) { _, item -> BriefingWeather(item) }
+                            itemsIndexed(weather) { _, item -> BriefingWeather(item, compact = weather.size > 2) }
                         }
                     }
                 }
@@ -204,21 +204,22 @@ private fun RiskSummary(state: BriefingState, modifier: Modifier) {
 }
 
 @Composable
-private fun BriefingWeather(weather: WeatherCard) {
+private fun BriefingWeather(weather: WeatherCard, compact: Boolean) {
     Surface(shape = RoundedCornerShape(20.dp), color = Color.White) {
-        Column(Modifier.fillMaxWidth().padding(26.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            Text(weather.label, fontSize = 25.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+        Column(Modifier.fillMaxWidth().padding(if (compact) 18.dp else 26.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 20.dp)) {
+            Text(weather.label, fontSize = if (compact) 22.sp else 25.sp, fontWeight = FontWeight.SemiBold, color = Ink)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                WeatherGlyph(weather.rainMmPerHour > 0, weather.snow, Modifier.size(86.dp))
-                Text("${weather.temperatureC}°", fontSize = 48.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                WeatherGlyph(weather.rainMmPerHour > 0, weather.snow, Modifier.size(if (compact) 44.dp else 86.dp))
+                Text("${weather.temperatureC}°", fontSize = if (compact) 34.sp else 48.sp, fontWeight = FontWeight.SemiBold, color = Ink)
             }
             val precipitation = when {
                 weather.snow -> "눈"
                 weather.rainMmPerHour > 0 -> "비 ${weather.rainMmPerHour}mm/h"
                 else -> "비 없음"
             }
-            Text("$precipitation · 강수 ${weather.precipitationChance}%", fontSize = 24.sp, lineHeight = 34.sp, color = Muted)
+            Text("$precipitation · 강수 ${weather.precipitationChance}%", fontSize = if (compact) 18.sp else 24.sp, lineHeight = if (compact) 26.sp else 34.sp, color = Muted)
         }
     }
 }

@@ -25,10 +25,9 @@ import com.example.pleosproj.ui.guidance.*
 import com.example.pleosproj.ui.theme.NavigationViewport
 import com.example.pleosproj.ui.components.*
 import com.example.pleosproj.ui.state.*
-import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
-// 경로 값과 예보는 연결부가 만든 값을 그대로 쓴다. 정확도는 계산하지 않고 제공 여부를 표시한다.
+// 경로별 지점·통과 시각·예보와 근거는 연결부가 만든 값을 그대로 표시한다.
 @Composable
 fun RouteCompareScreen(
     state: RouteCompareState,
@@ -40,8 +39,6 @@ fun RouteCompareScreen(
     startNotice: String? = null,
     startActionLabel: String = "안내 시작",
     inputEnabled: Boolean = true,
-    weatherByRoute: Map<String, List<WeatherCard>> = emptyMap(),
-    departureTime: LocalTime? = null,
     currentRemainingSeconds: Int? = null,
     onContinue: (() -> Unit)? = null,
     mapControls: @Composable () -> Unit = {},
@@ -78,7 +75,7 @@ fun RouteCompareScreen(
                         state.candidates.forEach { candidate ->
                             RouteCard(candidate, candidate.id == selected?.id, candidate.id == state.recommendedId,
                                 inputEnabled, reference, currentRemainingSeconds != null,
-                                weatherByRoute[candidate.id].orEmpty(), departureTime, onClick = { onSelect(candidate.id) })
+                                state.forecastBasis, onClick = { onSelect(candidate.id) })
                         }
                     }
                     startNotice?.let { Text(it, Modifier.padding(horizontal = 8.dp), fontSize = 14.sp, color = colors.onSurfaceVariant) }
@@ -105,7 +102,7 @@ fun RouteCompareScreen(
 
 @Composable
 private fun RouteCard(candidate: RouteCandidate, selected: Boolean, recommended: Boolean, inputEnabled: Boolean,
-    referenceSeconds: Int?, comparingCurrent: Boolean, weather: List<WeatherCard>, departure: LocalTime?, onClick: () -> Unit) {
+    referenceSeconds: Int?, comparingCurrent: Boolean, forecastBasis: String?, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val background by animateColorAsState(if (selected) colors.surfaceVariant else colors.surface, label = "route-selection")
     Surface(Modifier.fillMaxWidth().animateContentSize().selectable(selected = selected,
@@ -136,9 +133,11 @@ private fun RouteCard(candidate: RouteCandidate, selected: Boolean, recommended:
             Text(candidate.riskSummary, fontSize = 14.sp, lineHeight = 20.sp,
                 color = if (candidate.excluded) colors.primary else colors.onSurface, maxLines = if (selected) 3 else 1, overflow = TextOverflow.Ellipsis)
             if (selected) {
-                Text("정확도 정보 없음", fontSize = 12.sp, color = colors.onSurfaceVariant)
-                if (weather.isEmpty()) Text("경로 날씨를 받지 못했어요", fontSize = 14.sp, color = colors.onSurfaceVariant)
-                else RouteWeatherTimeline(weather, departure, candidate)
+                forecastBasis?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, fontSize = 12.sp, lineHeight = 18.sp, color = colors.onSurfaceVariant)
+                }
+                if (candidate.forecast.isEmpty()) Text("경로 예보 정보 없음", fontSize = 14.sp, color = colors.onSurfaceVariant)
+                else RouteWeatherTimeline(candidate.forecast)
             }
         }
     }
@@ -158,19 +157,26 @@ private fun DurationReadout(seconds: Int) {
 }
 
 @Composable
-private fun RouteWeatherTimeline(weather: List<WeatherCard>, departure: LocalTime?, candidate: RouteCandidate) {
+private fun RouteWeatherTimeline(forecast: List<RouteForecastPoint>) {
     val colors = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Surface(Modifier.fillMaxWidth().height(6.dp), shape = RoundedCornerShape(4.dp), color = colors.primary.copy(alpha = .65f)) {}
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            weather.take(4).forEachIndexed { index, item ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    val at = if (item.label == "목적지") departure?.plusSeconds(candidate.durationSeconds.toLong()) else if (index == 0) departure else null
-                    Text(at?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: item.label, fontSize = 12.sp, color = colors.onSurfaceVariant)
-                    Text(if (index == 0) "출발" else if (item.label == "목적지") distanceText(candidate.distanceMeters) else item.label,
-                        fontSize = 12.sp, color = colors.onSurfaceVariant)
-                    WeatherGlyph(item.rainMmPerHour > 0, item.snow, Modifier.size(36.dp), animated = false)
-                    Text("${item.temperatureC}°", fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            forecast.forEach { point ->
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(point.label, fontSize = 12.sp, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(point.passTime.format(DateTimeFormatter.ofPattern("HH:mm")), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(distanceText(point.distanceMeters), fontSize = 11.sp, color = colors.onSurfaceVariant)
+                    val weather = point.weather
+                    if (weather != null) {
+                        WeatherGlyph(weather.rainMmPerHour > 0, weather.snow, Modifier.size(32.dp), animated = false)
+                        Text("${weather.temperatureC}°", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                    } else {
+                        Spacer(Modifier.height(32.dp))
+                        Text("—", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                        Text("예보 없음", fontSize = 11.sp, color = colors.onSurfaceVariant)
+                    }
                 }
             }
         }
