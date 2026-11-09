@@ -76,6 +76,9 @@ fun BriefingScreen(
     voiceStatus: String? = null,
 ) {
     val currentOnDrivingStarted by rememberUpdatedState(onDrivingStarted)
+    val timingValueStyle = MaterialTheme.typography.headlineLarge.copy(
+        fontSize = 38.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold,
+    )
     LaunchedEffect(isParked) { if (isParked == false) currentOnDrivingStarted() }
     if (isParked == false) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -95,12 +98,12 @@ fun BriefingScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("도착 예정", fontSize = 23.sp, color = Muted)
                     Text(state.arrivalTime.format(DateTimeFormatter.ofPattern("HH:mm")),
-                        fontSize = 38.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                        style = timingValueStyle, color = Ink, maxLines = 1)
                 }
                 VerticalDivider(Modifier.height(72.dp), color = Color(0xFFDDDBE1))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("예상 소요", fontSize = 23.sp, color = Muted)
-                    Text(durationText(state.durationSeconds), fontSize = 34.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                    Text(durationText(state.durationSeconds), style = timingValueStyle, color = Ink, maxLines = 1)
                 }
             }
             Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
