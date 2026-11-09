@@ -8,6 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.example.pleosproj.R
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -87,7 +89,7 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
             if (flow.page != NavigationPage.COMPARE && flow.page != NavigationPage.GUIDANCE) Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (flow.page != NavigationPage.SEARCH) TextButton(onClick = flow::back) { Text("뒤로", fontSize = 22.sp, color = Ink) }
-                Text("SafeRoute", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Ink)
+                Text(stringResource(R.string.app_name), fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Column(Modifier.weight(1f)) {
                     Text(when (flow.page) {
                         NavigationPage.SEARCH -> "목적지 검색"

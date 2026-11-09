@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
+import com.example.pleosproj.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -61,7 +63,7 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onChooseScenari
         Column(Modifier.fillMaxSize()) {
             if (page != DemoPage.COMPARE && page != DemoPage.GUIDANCE) Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                Text("SafeRoute", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Ink)
+                Text(stringResource(R.string.app_name), fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Column(Modifier.weight(1f)) {
                     Text("시연 · ${session.title}", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = Ink)
                     Text("위험·날씨는 시나리오 데이터입니다", fontSize = 18.sp, color = Color(0xFF68666D))
