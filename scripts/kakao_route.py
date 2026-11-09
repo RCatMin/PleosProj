@@ -3,7 +3,7 @@
 
     python3 scripts/kakao_route.py snow-commute
 
-osrm_route.py와 같은 방식이다. 경로마다 `via`(지나갈 [위도, 경도] 목록, 출발·도착 포함)를 적어 두면
+osrm_route.py와 같은 방식이다. 경로마다 `via`(지나갈 [위도, 경도] 목록, 출발점에는 방향을 붙일 수 있다, 출발·도착 포함)를 적어 두면
 그 지점들을 차례로 지나는 경로를 받아 `line`과 `turns`를 덮어쓴다. `durationSeconds`는 시나리오 상황에 맞춰
 손으로 정하므로 건드리지 않는다. 키는 local.properties의 KAKAO_REST_KEY를 쓴다.
 """
@@ -27,7 +27,9 @@ def key():
 
 
 def fetch(via):
-    q = f"origin={via[0][1]},{via[0][0]}&destination={via[-1][1]},{via[-1][0]}&priority=RECOMMEND"
+    # 출발 지점의 세 번째 값은 달리는 방향(도, 북쪽 0)이다. 없으면 카카오가 정한 방향으로 출발해 블록을 돌 수 있다
+    angle = f",angle={round(via[0][2]) % 360}" if len(via[0]) > 2 else ""
+    q = f"origin={via[0][1]},{via[0][0]}{angle}&destination={via[-1][1]},{via[-1][0]}&priority=RECOMMEND"
     if len(via) > 2:
         q += "&waypoints=" + "|".join(f"{p[1]},{p[0]}" for p in via[1:-1])
     out = subprocess.run(["curl", "-s", "-m", "20", "-H", "Authorization: KakaoAK " + key(), URL + "?" + q],
