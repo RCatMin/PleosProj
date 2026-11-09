@@ -21,11 +21,11 @@ import com.example.pleosproj.ui.permissions.AppAccess
 
 @Composable
 internal fun DemoApplication(surface: MapSurface, lifecycle: Lifecycle, permissions: List<AccessStatus>,
-    onRequestPermission: (AppAccess) -> Unit, parked: Boolean?) {
+    onRequestPermission: (AppAccess) -> Unit, parked: Boolean?, speedKph: Double?) {
     var demo by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = demo) { demo = false }
     NavigationTransition(demo, Modifier.fillMaxSize()) { displayed ->
-        if (!displayed) NavigationFlowHost(surface, lifecycle, parked, permissions, onRequestPermission, onDemo = { demo = true })
+        if (!displayed) NavigationFlowHost(surface, lifecycle, parked, permissions, onRequestPermission, onDemo = { demo = true }, speedKph = speedKph)
         else {
             val context = LocalContext.current
             val result = remember { runCatching { DemoSession(context) } }

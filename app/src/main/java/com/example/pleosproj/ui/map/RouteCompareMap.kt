@@ -1,5 +1,6 @@
 package com.example.pleosproj.ui.map
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -10,9 +11,12 @@ import com.example.pleosproj.ui.state.RouteCompareState
 @Composable
 fun RouteCompareMap(surface: MapSurface, state: RouteCompareState, modifier: Modifier = Modifier) {
     LaunchedEffect(surface, state) { surface.render(state) }
-    val density = LocalDensity.current
-    LaunchedEffect(surface, density) {
-        with(density) { surface.setViewportInsets(48.dp.roundToPx(), 120.dp.roundToPx(), 48.dp.roundToPx(), 32.dp.roundToPx()) }
+    BoxWithConstraints(modifier) {
+        val density = LocalDensity.current
+        val left = minOf(408.dp, maxWidth * .38f) + 32.dp
+        LaunchedEffect(surface, density, left) {
+            with(density) { surface.setViewportInsets(left.roundToPx(), 60.dp.roundToPx(), 110.dp.roundToPx(), 48.dp.roundToPx()) }
+        }
+        MapCanvas(surface, androidx.compose.ui.Modifier.matchParentSize())
     }
-    MapCanvas(surface, modifier)
 }

@@ -17,11 +17,12 @@ import com.example.pleosproj.ui.compare.RouteCompareScreen
 import com.example.pleosproj.ui.guidance.GuidanceScreen
 import com.example.pleosproj.ui.map.GuidanceMap
 import com.example.pleosproj.ui.map.MapSurface
+import com.example.pleosproj.ui.map.MapControls
 import com.example.pleosproj.ui.map.RouteCompareMap
 import kotlinx.coroutines.launch
 
 private enum class DemoPage { BRIEFING, COMPARE, GUIDANCE, ENDED }
-private val Ink = Color(0xFF232228)
+private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
 
 @Composable
 internal fun DemoHost(surface: MapSurface, session: DemoSession, onExit: () -> Unit) {
@@ -52,9 +53,9 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onExit: () -> U
     LaunchedEffect(session, page) {
         if (page == DemoPage.BRIEFING) session.voice.briefing(session.briefing)
     }
-    Box(Modifier.fillMaxSize().background(Color(0xFFF7F7F8))) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp),
+            if (page != DemoPage.COMPARE && page != DemoPage.GUIDANCE) Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                 Text("SafeRoute", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Column(Modifier.weight(1f)) {
@@ -75,7 +76,11 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onExit: () -> U
                         voiceStatus = if (session.voice.enabled) "음성 안내 켜짐" else "음성 안내 꺼짐")
                     DemoPage.COMPARE -> RouteCompareScreen(session.comparison.copy(selectedId = selectedId),
                         onSelect = { id -> if (session.comparison.candidates.any { it.id == id && !it.excluded }) selectedId = id },
-                        onStart = { start() }, onFitRoutes = surface::resetCamera,
+                        onStart = { start() }, onFitRoutes = surface::fitRoute,
+                        weatherByRoute = session.comparison.candidates.associate { it.id to session.briefing.weather },
+                        mapControls = { MapControls(surface, !session.voice.enabled, session.voice::toggle) },
+                        onBack = { page = DemoPage.BRIEFING },
+                        toolbar = { DemoMapToolbar(session, onReset = { acknowledgedId = null; session.reset() }, onExit = onExit) },
                         startNotice = "시연 안내는 ${session.driveRouteName} 경로로 처음부터 진행합니다",
                         mapContent = { RouteCompareMap(surface, session.comparison.copy(selectedId = selectedId), it) })
                     DemoPage.GUIDANCE -> GuidanceScreen(state, voiceMuted = !session.voice.enabled,
@@ -85,6 +90,9 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onExit: () -> U
                         onEnd = { session.pause(); confirmEnd = true },
                         onToggleViewpoint = { surface.showDriverView(!surface.isDriverView) },
                         onRecenter = surface::resetCamera, driverView = surface.isDriverView,
+                        tollWon = session.comparison.candidates.firstOrNull { it.name == session.driveRouteName }?.tollWon,
+                        mapControls = { MapControls(surface, !session.voice.enabled, session.voice::toggle) },
+                        toolbar = { DemoMapToolbar(session, onReset = { acknowledgedId = null; session.reset() }, onExit = { session.pause(); session.voice.release(); onExit() }) },
                         mapContent = { GuidanceMap(surface, state, it, motionFrame) })
                     DemoPage.ENDED -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -125,4 +133,26 @@ private fun PlaybackControls(session: DemoSession, onReset: () -> Unit) {
 private fun clock(seconds: Double): String {
     val value = seconds.toInt().coerceAtLeast(0)
     return "%02d:%02d".format(value / 60, value % 60)
+}
+
+
+@Composable
+private fun DemoMapToolbar(session: DemoSession, onReset: () -> Unit, onExit: () -> Unit) {
+    val playback = session.playback
+    Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp), shadowElevation = 2.dp) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column {
+                Text("시연 · 위험·날씨는 예시", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${clock(playback.seconds)} / ${clock(playback.durationSeconds.toDouble())}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+            TextButton(onClick = { if (playback.playing) session.pause() else session.play() }) {
+                Text(if (playback.playing) "일시정지" else "재생", fontSize = 14.sp)
+            }
+            for (speed in listOf(1.0, 2.0, 4.0)) FilterChip(selected = playback.speed == speed,
+                onClick = { session.changeSpeed(speed) }, label = { Text("${speed.toInt()}배", fontSize = 12.sp) })
+            TextButton(onClick = onReset) { Text("처음으로", fontSize = 12.sp) }
+            TextButton(onClick = onExit) { Text("첫 화면", fontSize = 12.sp) }
+        }
+    }
 }

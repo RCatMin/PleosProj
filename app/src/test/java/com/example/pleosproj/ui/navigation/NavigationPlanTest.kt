@@ -30,6 +30,13 @@ class NavigationPlanTest {
         }
     }
 
+    @Test fun successfulTrafficPlanHasNoFallbackWarningAndOsrmReasonIsPreserved() {
+        assertNull(result(false).toScreenPlan().fallbackReason)
+        val fallback = result(false).copy(fallbackReason = "카카오 연결 실패")
+        assertEquals("카카오 연결 실패", fallback.toScreenPlan().fallbackReason)
+        assertEquals(java.time.LocalTime.of(18, 10), fallback.toScreenPlan().departureTime)
+    }
+
     private fun result(weatherMissing: Boolean) = RoutePlanResult(
         compare = PreviewStates.routeCompare,
         routes = PreviewStates.routeCompare.candidates.map { candidate ->
