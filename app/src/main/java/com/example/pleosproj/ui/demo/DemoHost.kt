@@ -97,6 +97,7 @@ internal fun DemoHost(surface: MapSurface, session: DemoSession, onChooseScenari
                         onToggleViewpoint = { surface.showDriverView(!surface.isDriverView) },
                         onRecenter = surface::resetCamera, driverView = surface.isDriverView,
                         tollWon = session.comparison.candidates.firstOrNull { it.name == session.driveRouteName }?.tollWon,
+                        onSeekRatio = { ratio -> acknowledgedId = null; session.seekToRatio(ratio) },
                         mapControls = { MapControls(surface, !session.voice.enabled, session.voice::toggle) },
                         toolbar = { DemoMapToolbar(session, onReset = { acknowledgedId = null; session.reset() }, onChooseScenario = ::chooseScenario, onExit = { session.pause(); session.voice.release(); onExit() }) },
                         mapContent = { GuidanceMap(surface, state, it, motionFrame) })
@@ -133,8 +134,7 @@ private fun PlaybackControls(session: DemoSession, onReset: () -> Unit) {
             colors = ButtonDefaults.filledTonalButtonColors(containerColor = Ink, contentColor = Color.White)) {
             Text(if (playback.playing) "일시정지" else "재생", fontSize = 21.sp)
         }
-        for (speed in listOf(1.0, 2.0, 4.0)) FilterChip(selected = playback.speed == speed,
-            onClick = { session.changeSpeed(speed) }, label = { Text("${speed.toInt()}배", fontSize = 20.sp) })
+        Text("4배속", fontSize = 20.sp, color = Ink)
         TextButton(onClick = onReset) { Text("처음으로", fontSize = 21.sp, color = Ink) }
     }
 }
@@ -151,15 +151,13 @@ private fun DemoMapToolbar(session: DemoSession, onReset: () -> Unit, onChooseSc
     Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp), shadowElevation = 2.dp) {
         Column(Modifier.widthIn(max = 480.dp).padding(horizontal = 12.dp, vertical = 4.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("시연 · ${session.title}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("시연 · ${session.title} · 4배속", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("${clock(playback.seconds)} / ${clock(playback.durationSeconds.toDouble())}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = { if (playback.playing) session.pause() else session.play() }, contentPadding = PaddingValues(4.dp)) {
                     Text(if (playback.playing) "일시정지" else "재생", fontSize = 13.sp)
                 }
-                for (speed in listOf(1.0, 2.0, 4.0)) FilterChip(selected = playback.speed == speed,
-                    onClick = { session.changeSpeed(speed) }, label = { Text("${speed.toInt()}배", fontSize = 12.sp) })
                 TextButton(onClick = onReset, contentPadding = PaddingValues(4.dp)) { Text("처음으로", fontSize = 12.sp) }
                 TextButton(onClick = onChooseScenario, contentPadding = PaddingValues(4.dp)) { Text("다른 시연", fontSize = 12.sp) }
                 TextButton(onClick = onExit, contentPadding = PaddingValues(4.dp)) { Text("첫 화면", fontSize = 12.sp) }

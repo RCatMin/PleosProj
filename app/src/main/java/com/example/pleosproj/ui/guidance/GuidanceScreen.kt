@@ -52,6 +52,7 @@ fun GuidanceScreen(
     tollWon: Int? = null,
     mapControls: (@Composable () -> Unit)? = null,
     toolbar: @Composable () -> Unit = {},
+    onSeekRatio: ((Double) -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     NavigationViewport(modifier.fillMaxSize().background(colors.background)) {
@@ -110,7 +111,8 @@ fun GuidanceScreen(
             }
             Surface(Modifier.width(156.dp).fillMaxHeight(), shadowElevation = 1.dp) {
                 RouteProgressRail(state.progress, state.remainingMeters, Modifier.fillMaxSize().padding(16.dp),
-                    hazards = state.hazards, nextTurn = state.nextTurn)
+                    hazards = state.hazards, nextTurn = state.nextTurn,
+                    onSeekRatio = onSeekRatio.takeIf { state.mode == DriveMode.SCENARIO })
             }
         }
     }

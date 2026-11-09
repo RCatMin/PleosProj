@@ -40,7 +40,7 @@ internal class DemoVoiceController(private val createSpeech: () -> DemoSpeech) {
     }
 
     fun onState(state: GuidanceState) {
-        // 일시정지·배속 변경·처음으로에서 오는 seek 결과는 발화 이력에 넣지 않는다.
+        // 일시정지·지점 이동·처음으로에서 오는 seek 결과는 발화 이력에 넣지 않는다.
         if (foreground && active) speech?.onState(state)
     }
 
