@@ -129,4 +129,14 @@ class RoutingTest {
         val r = Routing(source, rain(0.0), null, null, freezing = { throw java.io.IOException("끊김") }).plan(from, to, "삼성역", VehicleSignals(), now = now)
         assertEquals(2, r.routes.size)
     }
+
+    @Test
+    fun `통제 경로 요약에 통제를 한 번만 붙인다`() {
+        val fast = osrm[0]
+        val at = RouteGeometry.pointAt(fast.line, RouteGeometry.lengthMeters(fast.line) / 2)
+        val closure = TrafficEvent("일반도로", "통제", "전면통제", "테헤란로", at.lat, at.lng, null, null, "전면 통제", true)
+        val r = Routing(source, null, null, events = { _, _, _, _ -> listOf(closure) }).plan(from, to, "삼성역", VehicleSignals(), now = now)
+        val excluded = r.compare.candidates.first { it.excluded }
+        assertEquals("테헤란로 통제", excluded.riskSummary)
+    }
 }

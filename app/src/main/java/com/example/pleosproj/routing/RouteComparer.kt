@@ -165,7 +165,8 @@ class RouteComparer(private val hazardRadiusMeters: Double = 150.0) {
         // 빠진 경로는 지날 시각에 통제되는 곳 때문이므로, 출발할 때 통제 중이 아니면 "통제 예정"으로 쓴다
         val closing = hazards.filter { it.closedFromSeconds != null }
         if (excluded && closing.isNotEmpty()) {
-            return closing.joinToString { it.title } + if (closing.all { it.closedAt(start) }) " 통제" else " 통제 예정"
+            // ITS 통제 지점은 이름이 이미 "테헤란로 통제"처럼 끝나므로 "통제"를 한 번만 붙인다
+            return closing.joinToString { it.title.removeSuffix("통제").trim() } + if (closing.all { it.closedAt(start) }) " 통제" else " 통제 예정"
         }
         val risky = p.near.filter { (h, along) ->
             !h.statistical && (h.vulnerability != Vulnerability.NONE || h.icingZone ||
