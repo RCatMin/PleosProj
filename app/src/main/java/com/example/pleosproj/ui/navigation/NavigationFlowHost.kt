@@ -84,7 +84,7 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
     }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 10.dp),
+            if (flow.page != NavigationPage.COMPARE && flow.page != NavigationPage.GUIDANCE) Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (flow.page != NavigationPage.SEARCH) TextButton(onClick = flow::back) { Text("뒤로", fontSize = 22.sp, color = Ink) }
                 Text("SafeRoute", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Ink)
@@ -96,12 +96,7 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
                         NavigationPage.BRIEFING -> "출발 전 브리핑"
                         NavigationPage.GUIDANCE -> "${flow.routeName} 경로 안내"
                     }, fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = Ink)
-                    val status = when {
-                        flow.detouring -> "위험 구간을 피하는 경로를 찾고 있어요"
-                        flow.plan?.fallbackReason != null -> "대체 경로 · 교통 미반영 (${flow.plan?.fallbackReason})"
-                        flow.plan?.weatherMissing == true -> "날씨 정보를 받지 못해 날씨 위험은 반영되지 않았습니다"
-                        else -> null
-                    }
+                    val status = navigationStatus(flow)
                     status?.let { Text(it, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 if (flow.page == NavigationPage.BRIEFING) TextButton(onClick = flow::toggleVoice) {
@@ -138,11 +133,13 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
                             currentRemainingSeconds = flow.comparisonRemainingSeconds,
                             onContinue = if (flow.comparingCurrent) flow::continueGuidance else null,
                             mapControls = { MapControls(surface, !flow.voiceEnabled, flow::toggleVoice) },
+                            onBack = flow::back,
+                            toolbar = { MapTripToolbar(flow, onDemo = { if (flow.guiding) confirmDemo = true else openDemo() }) },
                             inputEnabled = flow.parked == true,
                             startNotice = when {
                                 flow.parked != true -> "정차 상태를 확인하면 경로를 선택할 수 있어요"
                                 flow.plan?.weatherMissing == true -> "날씨 정보를 받지 못해 날씨 위험은 반영되지 않았습니다"
-                                else -> null
+                                else -> navigationStatus(flow)
                             }, mapContent = { RouteCompareMap(surface, comparison, it) })
                     }
                     NavigationPage.BRIEFING -> flow.briefing?.let { briefing ->
@@ -158,7 +155,8 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
                             onEnd = flow::requestEnd, onRecenter = surface::resetCamera,
                             onToggleViewpoint = { surface.showDriverView(!surface.isDriverView) },
                             driverView = surface.isDriverView, speedKph = speedKph, tollWon = flow.activeTollWon,
-                            mapControls = { MapControls(surface, !flow.voiceEnabled, flow::toggleVoice) }, mapContent = { GuidanceMap(surface, guidance, it) })
+                            mapControls = { MapControls(surface, !flow.voiceEnabled, flow::toggleVoice) },
+                            toolbar = { MapTripToolbar(flow, onDemo = { confirmDemo = true }) }, mapContent = { GuidanceMap(surface, guidance, it) })
                     }
                 }
             }
@@ -175,4 +173,30 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
         text = { Text("현재 주행 안내를 종료하고 시연을 시작합니다.", fontSize = 24.sp) },
         confirmButton = { TextButton(onClick = { confirmDemo = false; openDemo() }) { Text("시연 시작", fontSize = 25.sp) } },
         dismissButton = { TextButton(onClick = { confirmDemo = false }) { Text("계속 안내", fontSize = 25.sp) } })
+}
+
+
+@Composable
+private fun MapTripToolbar(flow: NavigationFlowController, onDemo: () -> Unit) {
+    Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp), shadowElevation = 2.dp) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.widthIn(max = 280.dp)) {
+                if (flow.guiding) {
+                    Text(flow.guidance?.destinationName.orEmpty(), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Text(flow.routeName, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                navigationStatus(flow)?.let { Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            TextButton(onClick = onDemo) { Text("시연 모드", fontSize = 14.sp) }
+        }
+    }
+}
+
+
+private fun navigationStatus(flow: NavigationFlowController): String? = when {
+    flow.detouring -> "위험 구간을 피하는 경로를 찾고 있어요"
+    flow.plan?.fallbackReason != null -> "대체 경로 · 교통 미반영 (${flow.plan?.fallbackReason})"
+    flow.plan?.weatherMissing == true -> "날씨 정보를 받지 못해 날씨 위험은 반영되지 않았습니다"
+    else -> null
 }

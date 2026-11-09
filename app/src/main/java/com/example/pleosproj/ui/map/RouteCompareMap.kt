@@ -13,7 +13,7 @@ fun RouteCompareMap(surface: MapSurface, state: RouteCompareState, modifier: Mod
     LaunchedEffect(surface, state) { surface.render(state) }
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
-        val left = minOf(480.dp, maxWidth * .46f) + 36.dp
+        val left = minOf(408.dp, maxWidth * .38f) + 32.dp
         LaunchedEffect(surface, density, left) {
             with(density) { surface.setViewportInsets(left.roundToPx(), 60.dp.roundToPx(), 110.dp.roundToPx(), 48.dp.roundToPx()) }
         }

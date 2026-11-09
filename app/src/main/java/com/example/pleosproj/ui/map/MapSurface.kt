@@ -417,24 +417,23 @@ class MapSurface(context: Context, savedState: Bundle?) {
     }
 
     private fun currentPositionArrow(): Bitmap {
-        val bitmap = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(80, 80, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.color = android.graphics.Color.argb(50, 113, 69, 214)
+        canvas.drawCircle(40f, 40f, 39f, paint)
+        paint.color = android.graphics.Color.WHITE
+        canvas.drawCircle(40f, 40f, 28f, paint)
+        paint.color = android.graphics.Color.parseColor("#7145D6")
+        canvas.drawCircle(40f, 40f, 24f, paint)
         val arrow = Path().apply {
-            moveTo(32f, 5f)
-            lineTo(55f, 55f)
-            lineTo(32f, 44f)
-            lineTo(9f, 55f)
+            moveTo(40f, 24f)
+            lineTo(52f, 53f)
+            lineTo(40f, 47f)
+            lineTo(28f, 53f)
             close()
         }
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.WHITE
-            style = Paint.Style.STROKE
-            strokeWidth = 7f
-            strokeJoin = Paint.Join.ROUND
-        }
-        canvas.drawPath(arrow, paint)
-        paint.color = android.graphics.Color.parseColor("#7145D6")
-        paint.style = Paint.Style.FILL
+        paint.color = android.graphics.Color.WHITE
         canvas.drawPath(arrow, paint)
         return bitmap
     }

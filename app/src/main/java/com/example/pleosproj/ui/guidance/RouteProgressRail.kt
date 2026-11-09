@@ -34,18 +34,15 @@ internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, mo
     val current = progress.currentRatio.coerceIn(0.0, 1.0)
     val colors = androidx.compose.material3.MaterialTheme.colorScheme
     Column(modifier, horizontalAlignment = Alignment.End) {
-        androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp), color = colors.surface) {
-            Text(distanceText(remainingMeters), Modifier.padding(10.dp), fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp)) {
             val height = maxHeight
-            Canvas(Modifier.fillMaxSize().semantics { contentDescription = "전체 경로의 ${(current * 100).toInt()}% 지점" }) {
+            Canvas(Modifier.fillMaxSize().semantics { contentDescription = "${distanceText(remainingMeters)} 남음 · 전체 경로의 ${(current * 100).toInt()}% 지점" }) {
                 val x = size.width - 22.dp.toPx()
                 fun y(ratio: Double): Float = ((1 - ratio.coerceIn(0.0, 1.0)) * size.height).toFloat()
                 drawLine(colors.surface, Offset(x, 0f), Offset(x, size.height), 18.dp.toPx(), StrokeCap.Round)
                 drawLine(Color(0xFF7145D6), Offset(x, 0f), Offset(x, y(current)), 7.dp.toPx(), StrokeCap.Round)
                 progress.segments.filter { max(it.startRatio, it.endRatio) >= current }.forEach { segment ->
-                    if (segment.kind != SegmentKind.TURN) drawLine(segmentColor(segment), Offset(x, y(segment.startRatio)),
+                    if (segment.kind == SegmentKind.CONGESTION_HEAVY || segment.kind == SegmentKind.CONGESTION_SLOW) drawLine(segmentColor(segment), Offset(x, y(segment.startRatio)),
                         Offset(x, y(segment.endRatio)), 12.dp.toPx(), StrokeCap.Round)
                 }
                 drawCircle(colors.surface, 15.dp.toPx(), Offset(x, y(current)))
@@ -58,10 +55,8 @@ internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, mo
                     verticalAlignment = Alignment.CenterVertically) {
                     androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp), color = colors.surface) {
                         Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.End) {
-                            Text(segment.label ?: if (segment.kind == SegmentKind.HAZARD) "위험" else "앞쪽 구간", fontSize = 15.sp,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis, color = segmentColor(segment))
                             Text(if (segment.endRatio > segment.startRatio && current >= segment.startRatio) "지나는 중" else distanceText(distance),
-                                fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                                fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                     if (segment.kind == SegmentKind.HAZARD) HazardGlyph(segment.hazardKind ?: HazardKind.FLOOD, Modifier.size(32.dp))
@@ -71,7 +66,6 @@ internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, mo
                 }
             }
         }
-        Text("출발", fontSize = 16.sp, color = colors.onSurfaceVariant)
     }
 }
 
@@ -80,8 +74,9 @@ internal fun progressForLabels(progress: RouteProgress, hazards: List<Hazard>): 
     val points = hazards.mapNotNull { hazard -> hazard.ratioOnRoute?.let { ratio ->
         ProgressSegment(SegmentKind.HAZARD, ratio, ratio, hazard.title, hazard.kind)
     } }
-    if (points.isEmpty()) return progress
-    return progress.copy(segments = progress.segments.filterNot { it.kind == SegmentKind.HAZARD } + points)
+    return progress.copy(segments = progress.segments.filter {
+        it.kind != SegmentKind.TURN && (points.isEmpty() || it.kind != SegmentKind.HAZARD)
+    } + points)
 }
 
 private fun segmentColor(segment: ProgressSegment): Color = when (segment.kind) {

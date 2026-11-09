@@ -22,6 +22,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pleosproj.ui.guidance.*
+import com.example.pleosproj.ui.theme.NavigationViewport
+import com.example.pleosproj.ui.components.*
 import com.example.pleosproj.ui.state.*
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -43,60 +45,60 @@ fun RouteCompareScreen(
     currentRemainingSeconds: Int? = null,
     onContinue: (() -> Unit)? = null,
     mapControls: @Composable () -> Unit = {},
+    onBack: (() -> Unit)? = null,
+    toolbar: @Composable () -> Unit = {},
 ) {
     val selected = state.selectedRoute()
     val colors = MaterialTheme.colorScheme
-    BoxWithConstraints(modifier.fillMaxSize().background(colors.background)) {
+    NavigationViewport(modifier.fillMaxSize().background(colors.background)) {
         mapContent(Modifier.fillMaxSize())
-        val panelWidth = minOf(480.dp, maxWidth * .46f)
-        Column(Modifier.padding(20.dp).width(panelWidth).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = RoundedCornerShape(22.dp), shadowElevation = 2.dp) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("↗", fontSize = 28.sp, color = colors.primary, modifier = Modifier.padding(end = 16.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(if (onContinue != null) "안내 중 · 다른 길 비교" else "목적지", fontSize = 16.sp, color = colors.onSurfaceVariant)
-                        Text(state.destinationName, fontSize = 27.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+        val panelWidth = minOf(408.dp, maxWidth * .38f)
+        Column(Modifier.padding(16.dp).width(panelWidth).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(shape = RoundedCornerShape(24.dp), shadowElevation = 2.dp) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    NavigationIcon(NavigationIconKind.CAR, Modifier.size(24.dp), colors.primary)
+                    Text(state.destinationName, Modifier.weight(1f), fontSize = 21.sp, fontWeight = FontWeight.SemiBold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    onBack?.let { TextButton(onClick = it) { Text(if (onContinue != null) "돌아가기" else "변경", fontSize = 15.sp) } }
                 }
             }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).selectableGroup(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                state.adviceWhenAllRisky?.let {
-                    Surface(shape = RoundedCornerShape(16.dp), color = colors.surfaceVariant) {
-                        Text(it, Modifier.padding(18.dp), fontSize = 20.sp, color = colors.primary)
-                    }
-                }
-                if (state.candidates.isEmpty()) Surface(shape = RoundedCornerShape(18.dp)) {
-                    Text("비교할 경로가 없습니다", Modifier.fillMaxWidth().padding(24.dp), fontSize = 24.sp)
-                }
-                val reference = currentRemainingSeconds ?: state.candidates.filterNot { it.excluded }.minOfOrNull { it.durationSeconds }
-                state.candidates.forEach { candidate ->
-                    RouteCard(candidate, candidate.id == selected?.id, candidate.id == state.recommendedId,
-                        inputEnabled, reference, currentRemainingSeconds != null,
-                        weatherByRoute[candidate.id].orEmpty(), departureTime, onClick = { onSelect(candidate.id) })
+            state.adviceWhenAllRisky?.let {
+                Surface(shape = RoundedCornerShape(16.dp), color = colors.surface) {
+                    Text(it, Modifier.padding(14.dp), fontSize = 16.sp, color = colors.primary)
                 }
             }
-            Surface(shape = RoundedCornerShape(22.dp), shadowElevation = 2.dp) {
-                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    startNotice?.let { Text(it, Modifier.padding(horizontal = 8.dp), fontSize = 18.sp, color = colors.onSurfaceVariant) }
+            Surface(Modifier.weight(1f), shape = RoundedCornerShape(24.dp), shadowElevation = 2.dp) {
+                Column(Modifier.fillMaxSize().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (onContinue != null) Text("안내 중 · 다른 길 비교", Modifier.padding(6.dp), fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold, color = colors.primary)
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (state.candidates.isEmpty()) Text("비교할 경로가 없습니다", Modifier.padding(20.dp), fontSize = 22.sp)
+                        val reference = currentRemainingSeconds ?: state.candidates.filterNot { it.excluded }.minOfOrNull { it.durationSeconds }
+                        state.candidates.forEach { candidate ->
+                            RouteCard(candidate, candidate.id == selected?.id, candidate.id == state.recommendedId,
+                                inputEnabled, reference, currentRemainingSeconds != null,
+                                weatherByRoute[candidate.id].orEmpty(), departureTime, onClick = { onSelect(candidate.id) })
+                        }
+                    }
+                    startNotice?.let { Text(it, Modifier.padding(horizontal = 8.dp), fontSize = 14.sp, color = colors.onSurfaceVariant) }
                     Button(onClick = { selected?.let { onStart(it.id) } }, enabled = selected != null && inputEnabled,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp), shape = RoundedCornerShape(32.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp), shape = RoundedCornerShape(32.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF23252B), contentColor = androidx.compose.ui.graphics.Color.White)) {
-                        Text(if (onContinue != null) "이 길로 안내 시작" else startActionLabel, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+                        Text(if (onContinue != null) "이 길로 안내 시작" else startActionLabel, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                     }
                     onContinue?.let { action ->
-                        OutlinedButton(onClick = action, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                            Text("지금 길로 계속 가기", fontSize = 22.sp)
+                        OutlinedButton(onClick = action, modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)) {
+                            Text("지금 길로 계속 가기", fontSize = 17.sp)
                         }
                     }
                 }
             }
         }
-        Column(Modifier.align(Alignment.TopEnd).padding(20.dp), horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            FilledTonalButton(onClick = onFitRoutes, colors = ButtonDefaults.filledTonalButtonColors(containerColor = colors.surface)) {
-                Text("전체 경로 보기", fontSize = 20.sp)
-            }
+        Box(Modifier.align(Alignment.TopCenter).padding(top = 16.dp).offset(x = 100.dp)) { toolbar() }
+        Column(Modifier.align(Alignment.TopEnd).padding(16.dp), horizontalAlignment = Alignment.End) {
             mapControls()
+            TextButton(onClick = onFitRoutes) { Text("전체 경로", fontSize = 13.sp) }
         }
     }
 }
@@ -109,47 +111,67 @@ private fun RouteCard(candidate: RouteCandidate, selected: Boolean, recommended:
     Surface(Modifier.fillMaxWidth().animateContentSize().selectable(selected = selected,
         enabled = !candidate.excluded && inputEnabled, role = Role.RadioButton, onClick = onClick)
         .semantics { stateDescription = if (candidate.excluded) "통제로 제외, 선택 불가" else if (selected) "선택됨" else "선택 안 됨" },
-        shape = RoundedCornerShape(22.dp), color = background, contentColor = colors.onSurface,
-        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) colors.primary else colors.outlineVariant)) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(candidate.name, Modifier.weight(1f), fontSize = 23.sp, fontWeight = FontWeight.Bold,
+        shape = RoundedCornerShape(16.dp), color = background, contentColor = colors.onSurface,
+        border = BorderStroke(1.dp, if (selected) colors.surfaceVariant else colors.outlineVariant)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(candidate.name, fontSize = 17.sp, fontWeight = FontWeight.Bold,
                     color = if (selected) colors.primary else colors.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (recommended || candidate.excluded) Text(if (candidate.excluded) "통제로 제외" else "안전 추천",
-                    fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = colors.primary)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(durationText(candidate.durationSeconds), fontSize = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp)
-                referenceSeconds?.let {
-                    Text(routeTimeDifference(candidate.durationSeconds, it, comparingCurrent), fontSize = 21.sp,
-                        color = colors.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                if (recommended || candidate.excluded) Surface(shape = RoundedCornerShape(8.dp), color = colors.surface) {
+                    Text(if (candidate.excluded) "통제로 제외" else "안전 추천", Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.primary)
                 }
             }
-            Text("${distanceText(candidate.distanceMeters)}  ·  ${tollText(candidate.tollWon)}", fontSize = 20.sp, color = colors.onSurfaceVariant)
-            Text(candidate.riskSummary, fontSize = 19.sp, lineHeight = 26.sp,
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                DurationReadout(candidate.durationSeconds)
+                referenceSeconds?.let {
+                    Text(routeTimeDifference(candidate.durationSeconds, it, comparingCurrent), Modifier.padding(bottom = 5.dp),
+                        fontSize = 15.sp, color = colors.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(distanceText(candidate.distanceMeters), fontSize = 14.sp, color = colors.onSurfaceVariant)
+                Text(tollText(candidate.tollWon), fontSize = 14.sp, color = colors.onSurfaceVariant)
+            }
+            Text(candidate.riskSummary, fontSize = 14.sp, lineHeight = 20.sp,
                 color = if (candidate.excluded) colors.primary else colors.onSurface, maxLines = if (selected) 3 else 1, overflow = TextOverflow.Ellipsis)
             if (selected) {
-                HorizontalDivider(Modifier.padding(vertical = 3.dp), color = colors.outlineVariant)
-                Text("예상 정확도 · 제공 안 됨", fontSize = 16.sp, color = colors.onSurfaceVariant)
-                if (weather.isEmpty()) Text("경로 날씨를 받지 못했어요", fontSize = 18.sp, color = colors.onSurfaceVariant)
-                else RouteWeatherTimeline(weather, departure)
+                Text("정확도 정보 없음", fontSize = 12.sp, color = colors.onSurfaceVariant)
+                if (weather.isEmpty()) Text("경로 날씨를 받지 못했어요", fontSize = 14.sp, color = colors.onSurfaceVariant)
+                else RouteWeatherTimeline(weather, departure, candidate)
             }
         }
     }
 }
 
 @Composable
-private fun RouteWeatherTimeline(weather: List<WeatherCard>, departure: LocalTime?) {
+private fun DurationReadout(seconds: Int) {
+    val minutes = (seconds.coerceAtLeast(0) + 59) / 60
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        if (minutes >= 60) {
+            Text("${minutes / 60}", fontSize = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp)
+            Text("시간", Modifier.padding(bottom = 5.dp, end = 3.dp), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Text("${minutes % 60}", fontSize = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp)
+        Text("분", Modifier.padding(bottom = 5.dp), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun RouteWeatherTimeline(weather: List<WeatherCard>, departure: LocalTime?, candidate: RouteCandidate) {
     val colors = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        weather.take(4).forEachIndexed { index, item ->
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(if (index == 0) "${departure?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: "지금"} 출발" else item.label,
-                    fontSize = 17.sp, color = colors.onSurfaceVariant, maxLines = 1)
-                WeatherGlyph(item.rainMmPerHour > 0, item.snow, Modifier.size(42.dp), animated = false)
-                Text("${item.temperatureC}°", fontSize = 23.sp, fontWeight = FontWeight.SemiBold)
-                Text(if (item.snow) "눈" else if (item.rainMmPerHour > 0) "${item.rainMmPerHour}mm/h" else "비 없음", fontSize = 16.sp,
-                    color = colors.onSurfaceVariant, maxLines = 1)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(Modifier.fillMaxWidth().height(6.dp), shape = RoundedCornerShape(4.dp), color = colors.primary.copy(alpha = .65f)) {}
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            weather.take(4).forEachIndexed { index, item ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val at = if (item.label == "목적지") departure?.plusSeconds(candidate.durationSeconds.toLong()) else if (index == 0) departure else null
+                    Text(at?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: item.label, fontSize = 12.sp, color = colors.onSurfaceVariant)
+                    Text(if (index == 0) "출발" else if (item.label == "목적지") distanceText(candidate.distanceMeters) else item.label,
+                        fontSize = 12.sp, color = colors.onSurfaceVariant)
+                    WeatherGlyph(item.rainMmPerHour > 0, item.snow, Modifier.size(36.dp), animated = false)
+                    Text("${item.temperatureC}°", fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }
