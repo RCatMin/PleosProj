@@ -21,6 +21,7 @@ class ScenarioEngineTest {
     @Test
     fun `시나리오 파일을 읽는다`() {
         assertEquals("도심 폭우 퇴근길", scenario.title)
+        assertTrue(scenario.summary.isNotBlank())
         assertEquals(LocalTime.of(18, 10), scenario.startTime)
         assertEquals(3, scenario.routes.size)
         assertEquals("bongeunsa", scenario.driveRoute.id)

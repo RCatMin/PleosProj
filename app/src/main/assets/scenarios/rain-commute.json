@@ -1,6 +1,7 @@
 {
   "id": "rain-commute",
   "title": "도심 폭우 퇴근길",
+  "summary": "강남역에서 삼성역까지, 호우경보 속 침수·통제 구간을 피하는 길로 안내해요",
   "startTime": "18:10",
   "destinationName": "삼성역",
   "routes": [

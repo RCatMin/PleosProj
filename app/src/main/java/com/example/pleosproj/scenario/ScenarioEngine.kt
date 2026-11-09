@@ -216,6 +216,7 @@ class ScenarioEngine(
     private fun ScenarioHazard.toRiskPoint() = RiskPoint(
         id = id, kind = kind, position = position, title = title, detail = detail,
         vulnerability = vulnerability, icingZone = icingZone, closedFromSeconds = closedFromSeconds,
+        statistical = statistical,
     )
 
     private fun WeatherKey.toSample() = WeatherSample(rainMmPerHour, snowing, temperatureC, warning)

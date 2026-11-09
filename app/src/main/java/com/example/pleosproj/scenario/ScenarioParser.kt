@@ -18,6 +18,7 @@ object ScenarioParser {
         return Scenario(
             id = o.getString("id"),
             title = o.getString("title"),
+            summary = o.optString("summary"),
             startTime = LocalTime.parse(o.getString("startTime")),
             destinationName = o.getString("destinationName"),
             routes = o.getJSONArray("routes").map { route(it) },
@@ -59,6 +60,7 @@ object ScenarioParser {
         detail = o.optString("detail"),
         vulnerability = Vulnerability.valueOf(o.optString("vulnerability", "NONE")),
         icingZone = o.optBoolean("icingZone", false),
+        statistical = o.optBoolean("statistical", false),
         closedFromSeconds = if (o.has("closedFromSeconds")) o.getInt("closedFromSeconds") else null,
     )
 
