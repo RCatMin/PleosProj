@@ -2,7 +2,9 @@
 
 시연용 시나리오는 `app/src/main/assets/scenarios/<id>.json`에 둔다. 앱은 `ScenarioPlayer.load(context, id)`로 읽고, 재생기는 이 값으로 안내 화면 상태를 만든다 (ADR 0005).
 
-시나리오 속 위험 지점, 통제 시각, 날씨는 시연을 위해 만든 값이다. 실제 기록이 아니다.
+시나리오 속 위험 지점, 통제 시각, 날씨는 시연을 위해 만든 값이다. 실제 기록이 아니다. 겨울 시나리오(`snow-commute`)의 결빙 사고 다발지역만 도로교통공단 실제 통계(2021~2025년)에서 가져왔고, 경로선은 카카오모빌리티 실제 경로다. 소요 시간과 날씨는 눈 오는 날을 가정해 정했다.
+
+앱의 시연 모드는 `ScenarioPlayer.list(context)`로 시나리오 목록을 받는다.
 
 ## 전체 구조
 
@@ -10,6 +12,7 @@
 {
   "id": "rain-commute",
   "title": "도심 폭우 퇴근길",
+  "summary": "강남역에서 삼성역까지, 호우경보 속 침수·통제 구간을 피하는 길로 안내해요",
   "startTime": "18:10",
   "destinationName": "삼성역",
   "routes": [ ... ],
@@ -22,6 +25,7 @@
 
 | 필드 | 뜻 |
 | --- | --- |
+| `summary` | 시연 모드에서 시나리오를 고를 때 보여 줄 한 줄 설명 |
 | `startTime` | 출발 시각 (`HH:mm`). 도착 예정 시각 계산에 쓴다 |
 | `routes` | 후보 경로. 경로 비교 화면에 그대로 나온다 |
 | `driveRouteId` | 실제로 달리는 경로. 보통 추천될 경로를 넣는다 |
@@ -54,7 +58,8 @@
   python3 scripts/osrm_route.py rain-commute
   ```
 
-  OSRM 공개 서버(OpenStreetMap 기반 무료 길찾기)를 개발할 때만 부른다. 앱은 OSRM을 쓰지 않는다.
+  OSRM 공개 서버(OpenStreetMap 기반 무료 길찾기)를 개발할 때만 부른다.
+  카카오모빌리티 경로로 만들려면 `scripts/kakao_route.py`를 쓴다 (겨울 시나리오). `local.properties`의 `KAKAO_REST_KEY`를 읽는다.
 - `line`은 `[위도, 경도]` 목록이다.
 - `turns[].atMeters`는 출발점에서 경로선을 따라 잰 거리다.
 - `turns[].kind`는 `ui/state`의 `TurnKind` 이름이다 (`LEFT`, `RIGHT`, `ARRIVE` 등). 마지막에는 `ARRIVE`를 넣는다.
@@ -78,6 +83,7 @@
 - `kind`는 `HazardKind` 이름이다.
 - `vulnerability`는 `NONE`, `UNDERPASS`, `RIVERSIDE`, `PAST_FLOOD` 중 하나로, 위험도 계산의 취약 지점 점수가 된다.
 - `closedFromSeconds`가 있으면 그 시각부터 통제된다. 경로 비교는 각 구간을 지날 예상 시각으로 판단하므로, 지금은 열려 있어도 지날 때 통제되는 경로는 후보에서 빠진다.
+- `statistical: true`는 결빙 사고 다발지역처럼 실제 통계에서 가져온 지점이다. 경로 카드 요약에서 "결빙 사고가 잦은 곳 N곳"처럼 개수로 말한다.
 - 경로선에서 150m 안에 있는 지점만 그 경로의 위험으로 본다.
 
 ## 날씨와 차량 신호

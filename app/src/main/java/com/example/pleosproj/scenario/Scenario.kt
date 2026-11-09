@@ -15,6 +15,8 @@ import java.time.LocalTime
 data class Scenario(
     val id: String,
     val title: String,
+    /** 시나리오를 고를 때 보여 줄 한 줄 설명 */
+    val summary: String = "",
     val startTime: LocalTime,
     val destinationName: String,
     val routes: List<ScenarioRoute>,
@@ -51,6 +53,8 @@ data class ScenarioHazard(
     val detail: String,
     val vulnerability: Vulnerability = Vulnerability.NONE,
     val icingZone: Boolean = false,
+    /** 결빙 사고 다발지역처럼 실제 통계에서 가져온 지점. 경로 요약에서 이름 대신 개수로 말한다 */
+    val statistical: Boolean = false,
     /** 이 시각부터 통제된다. null이면 통제 없음 */
     val closedFromSeconds: Int? = null,
 ) {

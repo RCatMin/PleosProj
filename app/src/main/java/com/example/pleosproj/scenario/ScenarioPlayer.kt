@@ -65,8 +65,19 @@ class ScenarioPlayer(
     fun stop() = pause()
 
     companion object {
+        /** 시연 모드에서 고를 수 있는 시나리오 목록. assets/scenarios 폴더의 파일을 id 순서로 읽는다 */
+        fun list(context: Context): List<ScenarioInfo> =
+            context.assets.list("scenarios").orEmpty().filter { it.endsWith(".json") }
+                .map { load(context, it.removeSuffix(".json")).info() }
+                .sortedBy { it.id }
+
         /** assets/scenarios/<id>.json 을 읽는다 */
         fun load(context: Context, id: String): Scenario =
             context.assets.open("scenarios/$id.json").bufferedReader().use { ScenarioParser.parse(it.readText()) }
     }
 }
+
+/** 시나리오를 고르는 화면에 보여 줄 정보. [id]를 [ScenarioPlayer.load]에 넘긴다 */
+data class ScenarioInfo(val id: String, val title: String, val summary: String)
+
+fun Scenario.info() = ScenarioInfo(id, title, summary)
