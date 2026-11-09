@@ -22,7 +22,20 @@ data class GuidanceState(
     val weather: List<WeatherCard>,
     /** 지금 띄울 위험 알림. 없으면 null */
     val alert: HazardAlert?,
+    /** 앞으로 지날 IC·JC·톨게이트·휴게소. 가까운 순서. 시내 경로처럼 없으면 비어 있다 */
+    val facilities: List<RouteFacility> = emptyList(),
 )
+
+/** 경로 위 시설 */
+data class RouteFacility(
+    val kind: FacilityKind,
+    /** 예: "구리IC", "구리휴게소" */
+    val name: String,
+    /** 지금 위치에서 남은 거리(m) */
+    val distanceMeters: Int,
+)
+
+enum class FacilityKind { IC, JC, TOLLGATE, REST_AREA, ROADSIDE_STOP }
 
 /** 오른쪽 세로 진행 막대. 위치는 모두 전체 경로 중 비율(0=출발, 1=도착). */
 data class RouteProgress(

@@ -43,7 +43,7 @@ data class TurnInstruction(
 )
 
 data class WeatherCard(
-    /** 예: "지금", "10km 앞" */
+    /** 안내 화면에서는 "지금", "10km 앞", "20km 앞", "목적지". 목적지보다 먼 거리의 카드는 넣지 않는다 */
     val label: String,
     val temperatureC: Int,
     /** 강수 확률(%) */
