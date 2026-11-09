@@ -46,14 +46,14 @@ internal fun GuidanceMap(surface: MapSurface, state: GuidanceState, modifier: Mo
 internal fun MapCanvas(surface: MapSurface, modifier: Modifier = Modifier) {
     Box(modifier) {
         AndroidView(factory = { surface.view }, modifier = Modifier.fillMaxSize())
-        Surface(Modifier.align(Alignment.BottomEnd).padding(10.dp), color = Color.White.copy(alpha = 0.95f), contentColor = Color(0xFF23252B)) {
+        Surface(Modifier.align(Alignment.BottomEnd).padding(end = 104.dp, bottom = 4.dp), color = Color.White.copy(alpha = 0.95f), contentColor = Color(0xFF23252B)) {
             Text(buildAnnotatedString {
                 withLink(LinkAnnotation.Url("https://openfreemap.org/")) { append("© OpenFreeMap") }
                 append(" · ")
                 withLink(LinkAnnotation.Url("https://openmaptiles.org/")) { append("© OpenMapTiles") }
                 append(" · ")
                 withLink(LinkAnnotation.Url("https://www.openstreetmap.org/copyright")) { append("© OpenStreetMap") }
-            }, Modifier.padding(8.dp), fontSize = 13.sp)
+            }, Modifier.padding(horizontal = 5.dp, vertical = 3.dp), fontSize = 9.sp)
         }
         surface.loadMessage?.let { message ->
             Surface(Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surface) {
