@@ -12,7 +12,7 @@ internal interface DemoPlayer {
     fun seek(seconds: Double)
 }
 
-// 배속 변경 시 이전 재생기를 멈추고 위치를 이어받는다. 모든 호출은 메인 스레드에서 한다.
+// 시연은 4배속으로 고정한다. 이동 시 이전 재생기를 폐기하며 모든 호출은 메인 스레드에서 한다.
 internal class PlaybackController(
     initial: GuidanceState,
     val durationSeconds: Int,
@@ -23,18 +23,17 @@ internal class PlaybackController(
         private set
     var seconds by mutableStateOf(0.0)
         private set
-    var speed by mutableStateOf(1.0)
-        private set
+    val speed = 4.0
     var playing by mutableStateOf(false)
         private set
     val presentationSeconds get() = player.seconds.coerceIn(0.0, durationSeconds.toDouble())
     val finished get() = seconds >= durationSeconds
     private var generation = 0
-    private var player = newPlayer(1.0)
+    private var player = newPlayer()
 
-    private fun newPlayer(rate: Double): DemoPlayer {
+    private fun newPlayer(): DemoPlayer {
         val current = ++generation
-        return createPlayer(rate) { time, state ->
+        return createPlayer(speed) { time, state ->
             if (current == generation) {
                 seconds = time.coerceIn(0.0, durationSeconds.toDouble())
                 guidance = state
@@ -57,21 +56,17 @@ internal class PlaybackController(
     }
 
     fun reset() {
-        player.stop()
         playing = false
-        player.seek(0.0)
+        seekTo(0.0)
     }
 
-    fun changeSpeed(rate: Double) {
-        require(rate in listOf(1.0, 2.0, 4.0))
-        if (speed == rate) return
+    fun seekTo(targetSeconds: Double) {
+        if (!targetSeconds.isFinite()) return
         val resume = playing
         player.stop()
-        val position = player.seconds
-        player = newPlayer(rate)
-        speed = rate
         playing = false
-        player.seek(position)
+        player = newPlayer()
+        player.seek(targetSeconds.coerceIn(0.0, durationSeconds.toDouble()))
         if (resume && !finished) play()
     }
 

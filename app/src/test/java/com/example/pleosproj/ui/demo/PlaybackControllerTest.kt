@@ -12,12 +12,12 @@ class PlaybackControllerTest {
     }
 
     @Test
-    fun changingSpeedKeepsExactPositionAndRejectsOldPlayerUpdates() {
+    fun seekingWhilePlayingKeepsFixedSpeedAndRejectsOldPlayerUpdates() {
         val controller = controller()
         controller.play()
         val first = players.single()
         first.emit(137.25)
-        controller.changeSpeed(4.0)
+        controller.seekTo(137.25)
         assertFalse(first.running)
         assertEquals(4.0, players.last().rate, 0.0)
         assertEquals(137.25, players.last().seconds, 0.0)
@@ -29,15 +29,15 @@ class PlaybackControllerTest {
     }
 
     @Test
-    fun changingSpeedWhilePausedDoesNotRestartPlayback() {
+    fun seekingWhilePausedPublishesNewPositionWithoutRestarting() {
         val controller = controller()
         controller.play()
         players.single().emit(10.0)
         controller.stop()
-        controller.changeSpeed(2.0)
+        controller.seekTo(600.0)
         assertFalse(controller.playing)
         assertFalse(players.last().running)
-        assertEquals(10.0, controller.seconds, 0.0)
+        assertEquals(600.0, controller.seconds, 0.0)
     }
 
     @Test
@@ -47,7 +47,7 @@ class PlaybackControllerTest {
         players.single().emit(500.0)
         controller.reset()
         assertFalse(controller.playing)
-        assertFalse(players.single().running)
+        assertFalse(players.last().running)
         assertEquals(0.0, controller.seconds, 0.0)
         assertEquals(1080, controller.guidance.remainingSeconds)
     }
@@ -87,7 +87,6 @@ class PlaybackControllerTest {
         assertEquals(10.0, controller.seconds, 0.0)
         assertEquals(10.375, controller.presentationSeconds, 0.0)
         controller.stop()
-        controller.changeSpeed(4.0)
         assertEquals(10.375, controller.presentationSeconds, 0.0)
         assertFalse(controller.playing)
         controller.reset()
@@ -95,19 +94,49 @@ class PlaybackControllerTest {
     }
 
     @Test
-    fun oldPlayerCallbacksDoNotReachTheVoiceListenerAfterSpeedChangeOrDisposal() {
+    fun oldPlayerCallbacksDoNotReachTheVoiceListenerAfterSeekOrDisposal() {
         val states = mutableListOf<GuidanceState>()
         val controller = PlaybackController(PreviewStates.guidanceScenario, 1080,
             onGuidance = { states += it }) { rate, callback -> FakePlayer(rate, callback).also(players::add) }
         players.single().emit(20.0)
         val first = players.single()
-        controller.changeSpeed(2.0)
+        controller.seekTo(400.0)
         val count = states.size
         first.emit(500.0)
         assertEquals(count, states.size)
         controller.dispose()
         players.last().emit(600.0)
         assertEquals(count, states.size)
+    }
+
+    @Test
+    fun initialAndResetPlayersAlwaysRunAtFourTimesSpeed() {
+        val controller = controller()
+        assertEquals(4.0, controller.speed, 0.0)
+        assertEquals(4.0, players.single().rate, 0.0)
+        controller.play()
+        players.last().emit(500.0)
+        controller.reset()
+        controller.play()
+        assertTrue(players.all { it.rate == 4.0 })
+    }
+
+    @Test
+    fun seekingClampsBoundsAndCanRewindFromFinish() {
+        val controller = controller()
+        controller.play()
+        controller.seekTo(2000.0)
+        assertTrue(controller.finished)
+        assertFalse(controller.playing)
+        controller.seekTo(200.0)
+        assertFalse(controller.finished)
+        assertFalse(controller.playing)
+        assertEquals(880, controller.guidance.remainingSeconds)
+        controller.seekTo(-50.0)
+        assertEquals(0.0, controller.seconds, 0.0)
+        controller.seekTo(Double.NaN)
+        controller.seekTo(Double.POSITIVE_INFINITY)
+        assertEquals(0.0, controller.seconds, 0.0)
     }
 
     private class FakePlayer(val rate: Double, val callback: (Double, GuidanceState) -> Unit) : DemoPlayer {

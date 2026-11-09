@@ -46,10 +46,13 @@ internal class DemoSession(context: Context, scenarioId: String) {
     fun play() { voice.setPlaying(true); playback.play() }
     fun pause() { voice.setPlaying(false); playback.stop() }
     fun reset() { voice.beginGuidance(); playback.reset() }
-    fun changeSpeed(speed: Double) {
-        voice.setPlaying(false)
-        playback.changeSpeed(speed)
+    fun seekToRatio(ratio: Double) {
+        if (!ratio.isFinite()) return
+        // 뒤로 이동해도 같은 장면의 회전·위험 경고를 다시 들을 수 있게 발화 이력을 비운다.
+        voice.beginGuidance()
+        playback.seekTo(ratio.coerceIn(0.0, 1.0) * playback.durationSeconds)
         voice.setPlaying(playback.playing)
+        if (playback.playing) voice.onState(playback.guidance)
     }
     fun dispose() { voice.release(); playback.dispose() }
 }

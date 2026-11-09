@@ -48,7 +48,6 @@ class RouteCompareMapDataTest {
         val data = RouteCompareMapData(state.copy(candidates = emptyList()))
         assertTrue(data.routes.isEmpty())
         assertTrue(data.routeFeatures.features()!!.isEmpty())
-        assertTrue(data.labelFeatures.features()!!.isEmpty())
         assertTrue(data.hazardFeatures.features()!!.isEmpty())
         assertTrue(data.locationFeatures.features()!!.isEmpty())
     }

@@ -30,7 +30,7 @@ internal fun PermissionCard(statuses: List<AccessStatus>, onRequest: (AppAccess)
                         Text(status.access.title, fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = ink)
                         Text(status.access.purpose, fontSize = 20.sp, color = muted)
                         Text(status.description, fontSize = 21.sp,
-                            color = if (status.granted) Color(0xFF7145D6) else muted)
+                            color = if (status.granted) androidx.compose.material3.MaterialTheme.colorScheme.primary else muted)
                         if (status.action != AccessAction.NONE) TextButton(onClick = { onRequest(status.access) }) {
                             Text(if (status.action == AccessAction.SETTINGS) "설정에서 변경" else "권한 허용",
                                 fontSize = 21.sp, color = ink)

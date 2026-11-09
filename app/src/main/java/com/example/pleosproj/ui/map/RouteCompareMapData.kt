@@ -1,8 +1,6 @@
 package com.example.pleosproj.ui.map
 
 import com.example.pleosproj.ui.compare.selectedRoute
-import com.example.pleosproj.ui.hazardColor
-import com.example.pleosproj.ui.hazardName
 import com.example.pleosproj.ui.state.RouteCompareState
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
@@ -22,23 +20,11 @@ internal class RouteCompareMapData(state: RouteCompareState) {
             addBooleanProperty("excluded", candidate.excluded)
         }
     })
-    val labelFeatures: FeatureCollection = FeatureCollection.fromFeatures(drawable.map { candidate ->
-        val point = candidate.routeLine[candidate.routeLine.size / 2]
-        Feature.fromGeometry(Point.fromLngLat(point.lng, point.lat)).apply {
-            addStringProperty("label", when {
-                candidate.excluded -> "${candidate.name} · 제외"
-                candidate.id == selectedId -> "${candidate.name} · 선택"
-                else -> candidate.name
-            })
-        }
-    })
-    private val hazards = state.candidates.flatMap { it.hazards }.distinctBy { it.id }
-    val hazardFeatures: FeatureCollection = FeatureCollection.fromFeatures(hazards.map { hazard ->
-        Feature.fromGeometry(Point.fromLngLat(hazard.position.lng, hazard.position.lat)).apply {
-            addStringProperty("label", hazardName(hazard.kind))
-            addStringProperty("color", "#%06X".format(hazardColor(hazard.kind) and 0xFFFFFF))
-        }
-    })
+    private val hazardLines = drawable.sortedBy { it.id == selectedId }.flatMap { candidate ->
+        hazardRouteLines(candidate.routeLine, candidate.hazards, hazardsOnRoute = true)
+    }
+    val hazardKinds = hazardLines.map { it.kind }.distinct()
+    val hazardFeatures = hazardLines.toFeatures()
     val locationFeatures: FeatureCollection = FeatureCollection.fromFeatures(buildList {
         routes.firstOrNull()?.let { route ->
             add(Feature.fromGeometry(route.first()).apply { addStringProperty("label", "출발") })

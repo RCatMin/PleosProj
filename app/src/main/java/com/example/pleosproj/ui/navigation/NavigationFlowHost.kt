@@ -8,6 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.example.pleosproj.R
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -87,7 +89,7 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
             if (flow.page != NavigationPage.COMPARE && flow.page != NavigationPage.GUIDANCE) Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (flow.page != NavigationPage.SEARCH) TextButton(onClick = flow::back) { Text("뒤로", fontSize = 22.sp, color = Ink) }
-                Text("SafeRoute", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Ink)
+                Text(stringResource(R.string.app_name), fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Column(Modifier.weight(1f)) {
                     Text(when (flow.page) {
                         NavigationPage.SEARCH -> "목적지 검색"
@@ -127,12 +129,10 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
                     }
                     NavigationPage.COMPARE -> flow.comparison?.let { comparison ->
                         RouteCompareScreen(comparison, onSelect = flow::selectRoute, onStart = { id -> if (flow.comparingCurrent) flow.startComparedRoute(id) else flow.showBriefing(id) },
-                            onFitRoutes = surface::fitRoute, startActionLabel = "안내 시작",
-                            weatherByRoute = flow.plan?.briefings?.mapValues { it.value.weather }.orEmpty(),
-                            departureTime = flow.plan?.departureTime,
+                            onFitRoutes = surface::fitRoute, startActionLabel = if (flow.comparingCurrent) "이 길로 안내 시작" else "브리핑 보기",
                             currentRemainingSeconds = flow.comparisonRemainingSeconds,
                             onContinue = if (flow.comparingCurrent) flow::continueGuidance else null,
-                            mapControls = { MapControls(surface, !flow.voiceEnabled, flow::toggleVoice) },
+                            mapControls = { MapControls(surface, !flow.voiceEnabled, flow::toggleVoice, comparisonMode = true) },
                             onBack = flow::back,
                             toolbar = { MapTripToolbar(flow, onDemo = { if (flow.guiding) confirmDemo = true else openDemo() }) },
                             inputEnabled = flow.parked == true,

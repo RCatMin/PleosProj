@@ -5,6 +5,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.isActive
@@ -19,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.pleosproj.ui.state.GuidanceState
+import com.example.pleosproj.ui.state.SegmentKind
 
 @Composable
 internal fun GuidanceMap(surface: MapSurface, state: GuidanceState, modifier: Modifier = Modifier,
@@ -35,10 +37,16 @@ internal fun GuidanceMap(surface: MapSurface, state: GuidanceState, modifier: Mo
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         val topInset = maxHeight * .20f
-        LaunchedEffect(surface, topInset, density) {
-            with(density) { surface.setViewportInsets(0, topInset.roundToPx(), 0, 0) }
+        val leftInset = minOf(408.dp, maxWidth * .38f) + 32.dp
+        LaunchedEffect(surface, topInset, leftInset, density) {
+            with(density) { surface.setViewportInsets(leftInset.roundToPx(), topInset.roundToPx(), 84.dp.roundToPx(), 48.dp.roundToPx()) }
         }
         MapCanvas(surface, Modifier.fillMaxSize())
+        val ranges = state.progress.segments.filter { it.kind == SegmentKind.HAZARD }
+        val kinds = remember(state.routeLine, state.hazards, ranges) {
+            hazardRouteLines(state.routeLine.orEmpty(), state.hazards, ranges).map { it.kind }.distinct()
+        }
+        HazardLegend(kinds, Modifier.align(Alignment.BottomEnd).padding(end = 104.dp, bottom = 40.dp))
     }
 }
 

@@ -1,6 +1,7 @@
 package com.example.pleosproj.ui.map
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -12,27 +13,31 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-internal fun MapControls(surface: MapSurface, voiceMuted: Boolean, onToggleVoice: () -> Unit, modifier: Modifier = Modifier) {
+internal fun MapControls(surface: MapSurface, voiceMuted: Boolean, onToggleVoice: () -> Unit, modifier: Modifier = Modifier,
+    comparisonMode: Boolean = false) {
     var menu by remember { mutableStateOf<String?>(null) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(shape = RoundedCornerShape(12.dp), shadowElevation = 2.dp) {
+        Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
             Column {
                 MapControl("지도 확대", "plus", joined = true) { surface.zoomBy(1.0) }
-                HorizontalDivider(Modifier.width(54.dp).padding(horizontal = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(Modifier.width(46.dp).padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 MapControl("지도 축소", "minus", joined = true) { surface.zoomBy(-1.0) }
             }
         }
-        Box {
+        if (!comparisonMode) Box {
             MapControl("지도 보기 방식 · ${surface.viewpoint.label}", "compass") { menu = "view" }
-            Surface(Modifier.align(Alignment.BottomCenter).offset(y = 2.dp), color = com.example.pleosproj.ui.theme.ManeuverBlue,
-                contentColor = androidx.compose.ui.graphics.Color.White, shape = RoundedCornerShape(4.dp)) {
-                Text(when (surface.viewpoint) { MapViewpoint.OVERHEAD -> "3D"; MapViewpoint.NORTH_UP -> "N"; MapViewpoint.DRIVER -> "앞" },
-                    Modifier.padding(horizontal = 3.dp), fontSize = 9.sp)
-            }
+            // 배지는 시점 버튼의 터치를 가리지 않도록 비대화형 텍스트로 겹친다.
+            Text(when (surface.viewpoint) { MapViewpoint.OVERHEAD -> "3D"; MapViewpoint.NORTH_UP -> "N"; MapViewpoint.DRIVER -> "앞" },
+                Modifier.align(Alignment.BottomCenter).offset(y = 2.dp)
+                    .background(com.example.pleosproj.ui.theme.NavigationBlue, RoundedCornerShape(4.dp)).padding(horizontal = 3.dp),
+                color = androidx.compose.ui.graphics.Color.White, fontSize = 9.sp)
             DropdownMenu(expanded = menu == "view", onDismissRequest = { menu = null }) {
                 MapViewpoint.entries.forEach { value ->
                     DropdownMenuItem(text = { Text((if (surface.viewpoint == value) "✓  " else "    ") + value.label, fontSize = 17.sp) },
@@ -52,40 +57,60 @@ internal fun MapControls(surface: MapSurface, voiceMuted: Boolean, onToggleVoice
             }
         }
         MapControl(if (voiceMuted) "음성 안내 켜기" else "음성 안내 끄기", if (voiceMuted) "muted" else "voice", onClick = onToggleVoice)
-        MapControl(if (surface.night) "낮 화면으로" else "밤 화면으로", if (surface.night) "day" else "night", onClick = surface::toggleNight)
+        MapControl(
+            if (surface.night) "라이트 모드로 전환" else "다크 모드로 전환",
+            if (surface.night) "day" else "night",
+            caption = if (surface.night) "라이트" else "다크",
+            currentMode = if (surface.night) "현재 다크 모드" else "현재 라이트 모드",
+            onClick = surface::toggleNight,
+        )
     }
 }
 
 @Composable
-private fun MapControl(label: String, glyph: String, joined: Boolean = false, onClick: () -> Unit) {
+private fun MapControl(label: String, glyph: String, joined: Boolean = false, caption: String? = null, currentMode: String? = null, onClick: () -> Unit) {
     val ink = MaterialTheme.colorScheme.onSurface
-    Surface(shape = RoundedCornerShape(if (joined) 0.dp else 12.dp), shadowElevation = if (joined) 0.dp else 2.dp) {
-        IconButton(onClick = onClick, modifier = Modifier.size(54.dp).semantics { contentDescription = label }) {
-            Canvas(Modifier.size(24.dp)) {
-                val w = size.width; val h = size.height; val c = center
-                val stroke = 2.2.dp.toPx()
-                fun line(x: Float, y: Float, xx: Float, yy: Float) = drawLine(ink, Offset(w*x,h*y), Offset(w*xx,h*yy), stroke)
-                when (glyph) {
-                    "plus", "minus" -> { line(.15f,.5f,.85f,.5f); if (glyph == "plus") line(.5f,.15f,.5f,.85f) }
-                    "location", "day" -> {
-                        drawCircle(ink,w*.29f,c,style=Stroke(stroke)); drawCircle(ink,w*.09f,c,style=Stroke(stroke))
-                        line(.5f,0f,.5f,.16f);line(.5f,.84f,.5f,1f);line(0f,.5f,.16f,.5f);line(.84f,.5f,1f,.5f)
-                    }
-                    "compass" -> {
-                        drawCircle(ink,w*.44f,c,style=Stroke(stroke))
-                        drawPath(Path().apply { moveTo(w*.5f,h*.15f);lineTo(w*.67f,h*.55f);lineTo(w*.5f,h*.85f);lineTo(w*.33f,h*.45f);close() },ink,style=Stroke(stroke))
-                    }
-                    "layers" -> {
-                        drawPath(Path().apply { moveTo(w*.08f,h*.38f);lineTo(w*.5f,h*.1f);lineTo(w*.92f,h*.38f);lineTo(w*.5f,h*.66f);close() },ink,style=Stroke(stroke))
-                        line(.08f,.6f,.5f,.9f);line(.5f,.9f,.92f,.6f)
-                    }
-                    "night" -> drawPath(Path().apply { moveTo(w*.62f,h*.12f);cubicTo(w*.08f,h*.12f,w*.12f,h*.91f,w*.66f,h*.86f);cubicTo(w*.35f,h*.69f,w*.33f,h*.35f,w*.62f,h*.12f);close() },ink,style=Stroke(stroke))
-                    else -> {
-                        drawPath(Path().apply { moveTo(w*.08f,h*.35f);lineTo(w*.28f,h*.35f);lineTo(w*.54f,h*.12f);lineTo(w*.54f,h*.88f);lineTo(w*.28f,h*.65f);lineTo(w*.08f,h*.65f);close() },ink,style=Stroke(stroke))
-                        if (glyph == "muted") { line(.68f,.35f,.94f,.65f);line(.68f,.65f,.94f,.35f) }
-                        else drawArc(ink,-60f,120f,false,Offset(w*.4f,h*.16f),androidx.compose.ui.geometry.Size(w*.58f,h*.68f),style=Stroke(stroke))
+    Surface(shape = RoundedCornerShape(if (joined) 0.dp else 16.dp), shadowElevation = if (joined) 0.dp else 2.dp) {
+        IconButton(onClick = onClick, modifier = Modifier.size(width = 46.dp, height = if (caption == null) 46.dp else 64.dp).semantics {
+            contentDescription = label
+            currentMode?.let { stateDescription = it }
+        }) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Canvas(Modifier.size(22.dp)) {
+                    val w = size.width; val h = size.height; val c = center
+                    val stroke = 2.2.dp.toPx()
+                    fun line(x: Float, y: Float, xx: Float, yy: Float) = drawLine(ink, Offset(w*x,h*y), Offset(w*xx,h*yy), stroke)
+                    when (glyph) {
+                        "plus", "minus" -> { line(.15f,.5f,.85f,.5f); if (glyph == "plus") line(.5f,.15f,.5f,.85f) }
+                        "location" -> {
+                            drawCircle(ink,w*.29f,c,style=Stroke(stroke)); drawCircle(ink,w*.09f,c,style=Stroke(stroke))
+                            line(.5f,0f,.5f,.16f);line(.5f,.84f,.5f,1f);line(0f,.5f,.16f,.5f);line(.84f,.5f,1f,.5f)
+                        }
+                        "day" -> {
+                            drawCircle(ink, w * .23f, c, style = Stroke(stroke))
+                            repeat(8) { i ->
+                                val angle = i * Math.PI / 4
+                                val x = cos(angle).toFloat(); val y = sin(angle).toFloat()
+                                drawLine(ink, c + Offset(x, y) * (w * .35f), c + Offset(x, y) * (w * .48f), stroke)
+                            }
+                        }
+                        "compass" -> {
+                            drawCircle(ink,w*.44f,c,style=Stroke(stroke))
+                            drawPath(Path().apply { moveTo(w*.5f,h*.15f);lineTo(w*.67f,h*.55f);lineTo(w*.5f,h*.85f);lineTo(w*.33f,h*.45f);close() },ink,style=Stroke(stroke))
+                        }
+                        "layers" -> {
+                            drawPath(Path().apply { moveTo(w*.08f,h*.38f);lineTo(w*.5f,h*.1f);lineTo(w*.92f,h*.38f);lineTo(w*.5f,h*.66f);close() },ink,style=Stroke(stroke))
+                            line(.08f,.6f,.5f,.9f);line(.5f,.9f,.92f,.6f)
+                        }
+                        "night" -> drawPath(Path().apply { moveTo(w*.62f,h*.12f);cubicTo(w*.08f,h*.12f,w*.12f,h*.91f,w*.66f,h*.86f);cubicTo(w*.35f,h*.69f,w*.33f,h*.35f,w*.62f,h*.12f);close() },ink)
+                        else -> {
+                            drawPath(Path().apply { moveTo(w*.08f,h*.35f);lineTo(w*.28f,h*.35f);lineTo(w*.54f,h*.12f);lineTo(w*.54f,h*.88f);lineTo(w*.28f,h*.65f);lineTo(w*.08f,h*.65f);close() },ink,style=Stroke(stroke))
+                            if (glyph == "muted") { line(.68f,.35f,.94f,.65f);line(.68f,.65f,.94f,.35f) }
+                            else drawArc(ink,-60f,120f,false,Offset(w*.4f,h*.16f),androidx.compose.ui.geometry.Size(w*.58f,h*.68f),style=Stroke(stroke))
+                        }
                     }
                 }
+                caption?.let { Text(it, fontSize = 11.sp, lineHeight = 13.sp) }
             }
         }
     }

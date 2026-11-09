@@ -1,5 +1,6 @@
 package com.example.pleosproj.ui.map
 
+import com.example.pleosproj.ui.theme.NavigationBlueHex
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -10,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.pleosproj.ui.state.GuidanceState
+import com.example.pleosproj.ui.state.SegmentKind
 import com.example.pleosproj.ui.state.GeoPoint
 import com.example.pleosproj.ui.state.RouteCompareState
 import org.maplibre.android.MapLibre
@@ -128,6 +130,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
 
     fun render(state: RouteCompareState) {
         continuousMotion = false
+        followingPosition = false
         motion = null
         if (comparison?.candidates != state.candidates) cameraPending = true
         guidance = null
@@ -173,6 +176,8 @@ class MapSurface(context: Context, savedState: Bundle?) {
     }
 
     fun showViewpoint(value: MapViewpoint) {
+        // 비교 중에는 시점 변경을 막고 안내에서 선택했던 시점은 보존한다.
+        if (comparison != null) return
         viewpoint = value
         zoomAdjustment = 0.0
         resetCamera()
@@ -180,7 +185,8 @@ class MapSurface(context: Context, savedState: Bundle?) {
 
     fun zoomBy(amount: Double) {
         val loaded = map ?: return
-        zoomAdjustment = (zoomAdjustment + amount).coerceIn(-5.0, 3.0)
+        // 비교 중 확대는 안내로 돌아왔을 때의 확대 배율을 바꾸지 않는다.
+        if (comparison == null) zoomAdjustment = (zoomAdjustment + amount).coerceIn(-5.0, 3.0)
         loaded.animateCamera(CameraUpdateFactory.zoomBy(amount), 220)
     }
 
@@ -193,6 +199,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
     fun toggleNight() { night = !night; reload() }
 
     fun fitRoute() {
+        if (comparison != null) { resetCamera(); return }
         val loaded = map ?: return
         followingPosition = false
         val points = comparison?.candidates?.flatMap { it.routeLine }
@@ -219,7 +226,6 @@ class MapSurface(context: Context, savedState: Bundle?) {
             val data = RouteCompareMapData(state)
             style.getSourceAs<GeoJsonSource>("guidance-route")?.setGeoJson(empty)
             style.getSourceAs<GeoJsonSource>("compare-routes")?.setGeoJson(data.routeFeatures)
-            style.getSourceAs<GeoJsonSource>("compare-labels")?.setGeoJson(data.labelFeatures)
             style.getSourceAs<GeoJsonSource>("hazards")?.setGeoJson(data.hazardFeatures)
             style.getSourceAs<GeoJsonSource>("locations")?.setGeoJson(data.locationFeatures)
             MapBuildingVisibility.update(style, data.routes, emptyList())
@@ -230,18 +236,18 @@ class MapSurface(context: Context, savedState: Bundle?) {
         }
         val state = guidance ?: return
         val previous = renderedGuidance
-        val geometryChanged = previous == null || previous.routeLine != state.routeLine || previous.hazards != state.hazards
-        // 경로·위험 지점은 데이터가 바뀔 때만 갱신하고, 매 프레임의 위치 갱신과 분리한다.
+        val geometryChanged = previous == null || previous.routeLine != state.routeLine || previous.hazards != state.hazards ||
+            previous.progress.segments.filter { it.kind == SegmentKind.HAZARD } !=
+            state.progress.segments.filter { it.kind == SegmentKind.HAZARD }
+        // 경로·위험 구간은 데이터가 바뀔 때만 갱신하고, 매 프레임의 위치 갱신과 분리한다.
         if (geometryChanged) {
             val data = GuidanceMapData(state)
             if (previous == null) {
                 style.getSourceAs<GeoJsonSource>("compare-routes")?.setGeoJson(empty)
-                style.getSourceAs<GeoJsonSource>("compare-labels")?.setGeoJson(empty)
             }
             if (previous == null || previous.routeLine != state.routeLine)
                 style.getSourceAs<GeoJsonSource>("guidance-route")?.setGeoJson(data.routeFeatures)
-            if (previous == null || previous.hazards != state.hazards)
-                style.getSourceAs<GeoJsonSource>("hazards")?.setGeoJson(data.hazardFeatures)
+            style.getSourceAs<GeoJsonSource>("hazards")?.setGeoJson(data.hazardFeatures)
         }
         if (geometryChanged ||
             (state.routeLine.isNullOrEmpty() && previous?.myPosition != state.myPosition)) {
@@ -308,9 +314,9 @@ class MapSurface(context: Context, savedState: Bundle?) {
             fitCoordinates(loadedMap, state.candidates.flatMap { it.routeLine } +
                 state.candidates.flatMap { it.hazards }.map { it.position })
             val camera = loadedMap.cameraPosition
+            // 안내 시점과 별개로 비교는 항상 북쪽이 위인 평면 전체 경로로 표시한다.
             loadedMap.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(camera)
-                .tilt(when (viewpoint) { MapViewpoint.OVERHEAD -> 30.0; MapViewpoint.NORTH_UP -> 0.0; MapViewpoint.DRIVER -> 55.0 })
-                .bearing(if (viewpoint == MapViewpoint.NORTH_UP) 0.0 else camera.bearing).build()))
+                .tilt(0.0).bearing(0.0).build()))
             cameraPending = false
             return
         }
@@ -335,9 +341,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
     }
 
     private fun addComparisonLayers(style: Style) {
-        for (source in listOf("compare-routes", "compare-labels")) {
-            style.addSource(GeoJsonSource(source, FeatureCollection.fromFeatures(emptyArray<Feature>())))
-        }
+        style.addSource(GeoJsonSource("compare-routes", FeatureCollection.fromFeatures(emptyArray<Feature>())))
         val excluded = Expression.eq(Expression.get("excluded"), true)
         val selected = Expression.eq(Expression.get("selected"), true)
         val alternative = Expression.all(Expression.eq(Expression.get("selected"), false),
@@ -346,7 +350,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
             lineColor("#FFFFFF"), lineWidth(14f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
         style.addLayer(LineLayer("compare-alternative", "compare-routes").withFilter(alternative).withProperties(
-            lineColor("#B5A6D4"), lineWidth(7f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+            lineColor("#A7C3FA"), lineWidth(7f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
         style.addLayer(LineLayer("compare-excluded", "compare-routes").withFilter(excluded).withProperties(
             lineColor("#9C2864"), lineWidth(5f), lineDasharray(arrayOf(1.5f, 1.5f)),
@@ -356,12 +360,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
             lineColor("#FFFFFF"), lineWidth(15f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
         style.addLayer(LineLayer("compare-selected", "compare-routes").withFilter(selected).withProperties(
-            lineColor("#7145D6"), lineWidth(9f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
-        ))
-        style.addLayer(SymbolLayer("compare-route-labels", "compare-labels").withProperties(
-            textFont(arrayOf("Noto Sans Regular")), textField(Expression.get("label")), textSize(22f),
-            textColor("#40344F"), textHaloColor("#FFFFFF"), textHaloWidth(4f),
-            textOffset(arrayOf(0f, -2.2f)), textAllowOverlap(false),
+            lineColor(NavigationBlueHex), lineWidth(9f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
     }
 
@@ -384,15 +383,13 @@ class MapSurface(context: Context, savedState: Bundle?) {
             lineColor("#FFFFFF"), lineWidth(14f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
         style.addLayer(LineLayer("route-line", "guidance-route").withProperties(
-            lineColor("#7145D6"), lineWidth(8f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+            lineColor(NavigationBlueHex), lineWidth(8f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
-        style.addLayer(CircleLayer("hazard-points", "hazards").withProperties(
-            circleRadius(15f), circleColor(Expression.get("color")), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f),
+        style.addLayer(LineLayer("hazard-outline", "hazards").withProperties(
+            lineColor("#FFFFFF"), lineWidth(16f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
-        style.addLayer(SymbolLayer("hazard-labels", "hazards").withProperties(
-            textFont(arrayOf("Noto Sans Regular")), textField(Expression.get("label")), textSize(21f),
-            textColor("#242127"), textHaloColor("#FFFFFF"), textHaloWidth(3f),
-            textOffset(arrayOf(0f, 1.7f)), textAllowOverlap(true), textIgnorePlacement(true),
+        style.addLayer(LineLayer("hazard-line", "hazards").withProperties(
+            lineColor(Expression.get("color")), lineWidth(11f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
         style.addLayer(CircleLayer("destination", "locations")
             .withFilter(Expression.eq(Expression.get("label"), "목적지")).withProperties(
@@ -400,7 +397,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
             ))
         style.addLayer(CircleLayer("departure", "locations")
             .withFilter(Expression.eq(Expression.get("label"), "출발")).withProperties(
-                circleRadius(10f), circleColor("#FFFFFF"), circleStrokeColor("#7145D6"), circleStrokeWidth(4f),
+                circleRadius(10f), circleColor("#FFFFFF"), circleStrokeColor(NavigationBlueHex), circleStrokeWidth(4f),
             ))
         style.addLayer(SymbolLayer("endpoint-labels", "locations")
             .withFilter(Expression.neq(Expression.get("label"), "내 위치")).withProperties(
@@ -420,11 +417,12 @@ class MapSurface(context: Context, savedState: Bundle?) {
         val bitmap = Bitmap.createBitmap(80, 80, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        paint.color = android.graphics.Color.argb(50, 113, 69, 214)
+        val blue = android.graphics.Color.parseColor(NavigationBlueHex)
+        paint.color = (blue and 0x00FFFFFF) or (50 shl 24)
         canvas.drawCircle(40f, 40f, 39f, paint)
         paint.color = android.graphics.Color.WHITE
         canvas.drawCircle(40f, 40f, 28f, paint)
-        paint.color = android.graphics.Color.parseColor("#7145D6")
+        paint.color = blue
         canvas.drawCircle(40f, 40f, 24f, paint)
         val arrow = Path().apply {
             moveTo(40f, 24f)

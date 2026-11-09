@@ -25,4 +25,20 @@ class RouteProgressRailTest {
     @Test fun arrivalLeavesSpaceForCurrentPosition() {
         assertTrue(railLabels(RouteProgress(0.98, 5000, listOf(ProgressSegment(SegmentKind.TURN, 1.0, 1.0))), 600f).isEmpty())
     }
+    @Test fun trackTapMapsDestinationTopAndDepartureBottomInBothDirections() {
+        assertEquals(1.0, railRatioAt(0f, 1000f)!!, .000001)
+        assertEquals(.75, railRatioAt(250f, 1000f)!!, .000001)
+        assertEquals(.25, railRatioAt(750f, 1000f)!!, .000001)
+        assertEquals(0.0, railRatioAt(1000f, 1000f)!!, .000001)
+        assertEquals(0.0, railRatioAt(1200f, 1000f)!!, .000001)
+        assertNull(railRatioAt(0f, 0f))
+        assertNull(railRatioAt(Float.NaN, 1000f))
+    }
+
+    @Test fun eventJumpLeavesTwoHundredMetersForRecordingAndClampsNearStart() {
+        assertEquals(.46, railEventRatio(.5, 5000), .000001)
+        assertEquals(0.0, railEventRatio(.01, 5000), .000001)
+        assertEquals(.5, railEventRatio(.5, 0), .000001)
+    }
+
 }

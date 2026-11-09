@@ -47,8 +47,8 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.PI
 import kotlin.math.sin
 
-private val Ink = Color(0xFF232228)
-private val Muted = Color(0xFF68666D)
+private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
+private val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 private val Teal = Color(0xFF16776F)
 
 // 배치는 고정하고 그리기만 바꾼다. Compose 표준 애니메이션 배율을 따른다.
@@ -76,6 +76,9 @@ fun BriefingScreen(
     voiceStatus: String? = null,
 ) {
     val currentOnDrivingStarted by rememberUpdatedState(onDrivingStarted)
+    val timingValueStyle = MaterialTheme.typography.headlineLarge.copy(
+        fontSize = 38.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold,
+    )
     LaunchedEffect(isParked) { if (isParked == false) currentOnDrivingStarted() }
     if (isParked == false) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -83,24 +86,24 @@ fun BriefingScreen(
         }
         return
     }
-    Column(modifier.fillMaxSize().background(Color(0xFFF7F7F8))) {
+    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.weight(1f).fillMaxWidth().padding(28.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
             Row(Modifier.fillMaxWidth().revealOnEntry(0), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(48.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("오늘의 목적지", fontSize = 23.sp, color = Muted)
-                    Text(state.destinationName, fontSize = 56.sp, lineHeight = 68.sp, fontWeight = FontWeight.Bold,
+                    Text(state.destinationName, fontSize = 44.sp, lineHeight = 54.sp, fontWeight = FontWeight.Bold,
                         color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("도착 예정", fontSize = 23.sp, color = Muted)
                     Text(state.arrivalTime.format(DateTimeFormatter.ofPattern("HH:mm")),
-                        fontSize = 48.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                        style = timingValueStyle, color = Ink, maxLines = 1)
                 }
                 VerticalDivider(Modifier.height(72.dp), color = Color(0xFFDDDBE1))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("예상 소요", fontSize = 23.sp, color = Muted)
-                    Text(durationText(state.durationSeconds), fontSize = 42.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                    Text(durationText(state.durationSeconds), style = timingValueStyle, color = Ink, maxLines = 1)
                 }
             }
             Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -109,12 +112,12 @@ fun BriefingScreen(
                     Text("경로 날씨", fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = Ink)
                     Crossfade(state.weather, Modifier.weight(1f), animationSpec = tween(240), label = "briefing-weather") { weather ->
                         if (weather.isEmpty()) {
-                            Surface(shape = RoundedCornerShape(20.dp), color = Color.White) {
+                            Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface) {
                                 Text("날씨 정보를 기다리고 있어요", Modifier.fillMaxWidth().padding(28.dp),
                                     fontSize = 26.sp, lineHeight = 36.sp, color = Muted)
                             }
                         } else LazyColumn(verticalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.fillMaxSize()) {
-                            itemsIndexed(weather) { _, item -> BriefingWeather(item) }
+                            itemsIndexed(weather) { _, item -> BriefingWeather(item, compact = weather.size > 2) }
                         }
                     }
                 }
@@ -125,7 +128,7 @@ fun BriefingScreen(
         val startPressed by startInteraction.collectIsPressedAsState()
         val startScale = animateFloatAsState(if (startPressed) 0.97f else 1f,
             animationSpec = tween(120), label = "briefing-start-press")
-        Surface(Modifier.revealOnEntry(240), color = Color.White) {
+        Surface(Modifier.revealOnEntry(240), color = MaterialTheme.colorScheme.surface) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 24.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 Text(if (isParked == true) "출발 전, 경로의 위험과 날씨를 확인하세요" else "정차 상태를 확인하면 출발할 수 있어요",
@@ -139,7 +142,7 @@ fun BriefingScreen(
                     modifier = Modifier.graphicsLayer { scaleX = startScale.value; scaleY = startScale.value },
                     colors = ButtonDefaults.buttonColors(containerColor = Ink),
                     contentPadding = PaddingValues(horizontal = 44.dp, vertical = 25.dp)) {
-                    Text("안전 경로로 출발", fontSize = 29.sp, fontWeight = FontWeight.SemiBold)
+                    Text("안내 시작", fontSize = 29.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -162,8 +165,8 @@ private fun RiskSummary(state: BriefingState, modifier: Modifier) {
         state.overallLevel == RiskLevel.LOW -> "위험 낮음"
         else -> "경로 정보"
     }
-    Surface(modifier, shape = RoundedCornerShape(24.dp), color = Color.White) {
-        Column(Modifier.padding(30.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+    Surface(modifier, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.padding(26.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("경로 위험 요약", fontSize = 29.sp, fontWeight = FontWeight.SemiBold, color = Ink)
@@ -187,14 +190,14 @@ private fun RiskSummary(state: BriefingState, modifier: Modifier) {
                         drawPath(path, color, style = Stroke(6.dp.toPx(), cap = StrokeCap.Round))
                     }
                     Spacer(Modifier.height(28.dp))
-                    Text("오늘 경로에 위험 없음", fontSize = 36.sp, lineHeight = 48.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                    Text("오늘 경로에 위험 없음", fontSize = 30.sp, lineHeight = 42.sp, fontWeight = FontWeight.SemiBold, color = Ink)
                 } else LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     itemsIndexed(riskLines) { index, line ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 20.dp),
                             horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.Top) {
                             Text("%02d".format(index + 1), Modifier.padding(top = 6.dp), fontSize = 23.sp,
                                 fontWeight = FontWeight.SemiBold, color = color)
-                            Text(line, fontSize = 34.sp, lineHeight = 48.sp, color = Ink)
+                            Text(line, fontSize = 27.sp, lineHeight = 39.sp, color = Ink)
                         }
                     }
                 }
@@ -204,21 +207,22 @@ private fun RiskSummary(state: BriefingState, modifier: Modifier) {
 }
 
 @Composable
-private fun BriefingWeather(weather: WeatherCard) {
-    Surface(shape = RoundedCornerShape(20.dp), color = Color.White) {
-        Column(Modifier.fillMaxWidth().padding(26.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            Text(weather.label, fontSize = 25.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+private fun BriefingWeather(weather: WeatherCard, compact: Boolean) {
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.fillMaxWidth().padding(if (compact) 18.dp else 26.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 20.dp)) {
+            Text(weather.label, fontSize = if (compact) 22.sp else 25.sp, fontWeight = FontWeight.SemiBold, color = Ink)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                WeatherGlyph(weather.rainMmPerHour > 0, weather.snow, Modifier.size(86.dp))
-                Text("${weather.temperatureC}°", fontSize = 48.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                WeatherGlyph(weather.rainMmPerHour > 0, weather.snow, Modifier.size(if (compact) 44.dp else 86.dp))
+                Text("${weather.temperatureC}°", fontSize = if (compact) 34.sp else 48.sp, fontWeight = FontWeight.SemiBold, color = Ink)
             }
             val precipitation = when {
                 weather.snow -> "눈"
                 weather.rainMmPerHour > 0 -> "비 ${weather.rainMmPerHour}mm/h"
                 else -> "비 없음"
             }
-            Text("$precipitation · 강수 ${weather.precipitationChance}%", fontSize = 24.sp, lineHeight = 34.sp, color = Muted)
+            Text("$precipitation · 강수 ${weather.precipitationChance}%", fontSize = if (compact) 18.sp else 24.sp, lineHeight = if (compact) 26.sp else 34.sp, color = Muted)
         }
     }
 }

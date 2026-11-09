@@ -1,7 +1,5 @@
 package com.example.pleosproj.ui.map
 
-import com.example.pleosproj.ui.hazardColor
-import com.example.pleosproj.ui.hazardName
 import com.example.pleosproj.ui.state.GuidanceState
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
@@ -15,12 +13,9 @@ internal class GuidanceMapData(state: GuidanceState) {
     val routeFeatures: FeatureCollection = FeatureCollection.fromFeatures(
         routes.map { Feature.fromGeometry(LineString.fromLngLats(it)) },
     )
-    val hazardFeatures: FeatureCollection = FeatureCollection.fromFeatures(state.hazards.map { hazard ->
-        Feature.fromGeometry(Point.fromLngLat(hazard.position.lng, hazard.position.lat)).apply {
-            addStringProperty("label", hazardName(hazard.kind))
-            addStringProperty("color", "#%06X".format(hazardColor(hazard.kind) and 0xFFFFFF))
-        }
-    })
+    private val hazardLines = hazardRouteLines(state.routeLine.orEmpty(), state.hazards, state.progress.segments)
+    val hazardKinds = hazardLines.map { it.kind }.distinct()
+    val hazardFeatures = hazardLines.toFeatures()
     private val current = Point.fromLngLat(state.myPosition.lng, state.myPosition.lat)
     val locationFeatures: FeatureCollection = FeatureCollection.fromFeatures(buildList {
         add(Feature.fromGeometry(current).apply { addStringProperty("label", "내 위치") })

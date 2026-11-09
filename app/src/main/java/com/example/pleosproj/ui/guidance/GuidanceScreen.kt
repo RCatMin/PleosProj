@@ -1,6 +1,6 @@
 package com.example.pleosproj.ui.guidance
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibility as ShowAlert
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.example.pleosproj.ui.compare.tollText
 import com.example.pleosproj.ui.hazardColor
 import com.example.pleosproj.ui.state.*
-import com.example.pleosproj.ui.theme.ManeuverBlue
+import com.example.pleosproj.ui.theme.NavigationBlue
 import com.example.pleosproj.ui.theme.NavigationViewport
 import com.example.pleosproj.ui.components.*
 import androidx.compose.ui.text.SpanStyle
@@ -52,63 +52,67 @@ fun GuidanceScreen(
     tollWon: Int? = null,
     mapControls: (@Composable () -> Unit)? = null,
     toolbar: @Composable () -> Unit = {},
+    onSeekRatio: ((Double) -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     NavigationViewport(modifier.fillMaxSize().background(colors.background)) {
-        mapContent(Modifier.fillMaxSize())
-        val panelWidth = minOf(408.dp, maxWidth * .38f)
-        Column(Modifier.padding(16.dp).width(panelWidth).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ManeuverCard(state, tollWon)
-                AnimatedVisibility(state.alert != null) {
-                    state.alert?.let { alert ->
-                        val hazard = state.hazards.firstOrNull { it.id == alert.hazardId }
-                        AlertCard(alert, hazard, state.progress, onAcknowledge = { onAcknowledge(alert.hazardId) },
-                            onOtherRoutes = if (alert.suggestsDetour) onDetour else onOtherRoutes)
-                    }
-                }
-                FacilityPanel(state)
-            }
-            WeatherPanel(state.weather, state.mode == DriveMode.SCENARIO)
-            Surface(shape = RoundedCornerShape(24.dp), shadowElevation = 2.dp) {
-                Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = onOtherRoutes, modifier = Modifier.weight(1f), contentPadding = PaddingValues(8.dp)) {
-                        NavigationIcon(NavigationIconKind.OTHER_ROUTES, Modifier.size(16.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text("다른 길 보기", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                    }
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            NavigationIcon(NavigationIconKind.MICROPHONE, Modifier.size(16.dp), colors.onSurfaceVariant)
-                            Spacer(Modifier.width(4.dp))
-                            Text("음성으로 선택", fontSize = 14.sp, color = colors.onSurfaceVariant)
+        Row(Modifier.fillMaxSize()) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
+                mapContent(Modifier.fillMaxSize())
+                val panelWidth = minOf(408.dp, maxWidth * .38f)
+                Column(Modifier.padding(16.dp).width(panelWidth).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ManeuverCard(state, tollWon)
+                        ShowAlert(visible = state.alert != null) {
+                            state.alert?.let { alert ->
+                                val hazard = state.hazards.firstOrNull { it.id == alert.hazardId }
+                                AlertCard(alert, hazard, state.progress, onAcknowledge = { onAcknowledge(alert.hazardId) },
+                                    onOtherRoutes = if (alert.suggestsDetour) onDetour else onOtherRoutes)
+                            }
                         }
-                        Text("준비 중", fontSize = 10.sp, color = colors.onSurfaceVariant)
+                        FacilityPanel(state)
                     }
-                    Button(onClick = onEnd, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF23252B), contentColor = Color.White)) {
-                        Text("안내 종료", fontSize = 15.sp, maxLines = 1)
+                    WeatherPanel(state.weather, state.remainingMeters)
+                    Surface(shape = RoundedCornerShape(24.dp), shadowElevation = 2.dp) {
+                        Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = onOtherRoutes, modifier = Modifier.weight(1f), contentPadding = PaddingValues(8.dp)) {
+                                NavigationIcon(NavigationIconKind.OTHER_ROUTES, Modifier.size(16.dp))
+                                Spacer(Modifier.width(5.dp))
+                                Text("다른 길 보기", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            }
+                            TextButton(onClick = onToggleVoice, modifier = Modifier.weight(1f), contentPadding = PaddingValues(6.dp)) {
+                                Text(if (voiceMuted) "음성 꺼짐" else "음성 켜짐", fontSize = 14.sp, maxLines = 1)
+                            }
+                            Button(onClick = onEnd, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 14.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF23252B), contentColor = Color.White)) {
+                                Text("안내 종료", fontSize = 15.sp, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+                Box(Modifier.align(Alignment.TopEnd).padding(top = 16.dp, end = 84.dp)
+                    .widthIn(max = (maxWidth - panelWidth - 116.dp).coerceAtLeast(220.dp))) { toolbar() }
+                Column(Modifier.align(Alignment.TopEnd).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (mapControls != null) mapControls()
+                    else {
+                        TextButton(onClick = onToggleViewpoint) { Text(if (driverView) "위에서 보기" else "운전석에서 보기") }
+                        TextButton(onClick = onRecenter) { Text("내 위치로") }
+                        TextButton(onClick = onToggleVoice) { Text(if (voiceMuted) "음성 켜기" else "음성 끄기") }
+                    }
+                }
+                Surface(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 18.dp).size(72.dp),
+                    shape = RoundedCornerShape(24.dp), shadowElevation = 2.dp) {
+                    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(speedKph?.takeIf { it.isFinite() }?.coerceAtLeast(0.0)?.roundToInt()?.toString() ?: "—", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                        Text(if (state.mode == DriveMode.SCENARIO) "km/h · 예시" else "km/h", fontSize = 11.sp, color = colors.onSurfaceVariant)
                     }
                 }
             }
-        }
-        RouteProgressRail(state.progress, state.remainingMeters,
-            Modifier.align(Alignment.TopEnd).padding(top = 16.dp, end = 88.dp, bottom = 18.dp).width(100.dp).fillMaxHeight(), hazards = state.hazards)
-        Box(Modifier.align(Alignment.TopCenter).padding(top = 16.dp).offset(x = 130.dp)) { toolbar() }
-        Column(Modifier.align(Alignment.TopEnd).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (mapControls != null) mapControls()
-            else {
-                TextButton(onClick = onToggleViewpoint) { Text(if (driverView) "위에서 보기" else "운전석에서 보기") }
-                TextButton(onClick = onRecenter) { Text("내 위치로") }
-                TextButton(onClick = onToggleVoice) { Text(if (voiceMuted) "음성 켜기" else "음성 끄기") }
-            }
-        }
-        Surface(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 18.dp).size(72.dp),
-            shape = RoundedCornerShape(24.dp), shadowElevation = 2.dp) {
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(speedKph?.takeIf { it.isFinite() }?.coerceAtLeast(0.0)?.roundToInt()?.toString() ?: "—", fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                Text(if (state.mode == DriveMode.SCENARIO) "km/h · 예시" else "km/h", fontSize = 11.sp, color = colors.onSurfaceVariant)
+            Surface(Modifier.width(156.dp).fillMaxHeight(), shadowElevation = 1.dp) {
+                RouteProgressRail(state.progress, state.remainingMeters, Modifier.fillMaxSize().padding(16.dp),
+                    hazards = state.hazards, nextTurn = state.nextTurn,
+                    onSeekRatio = onSeekRatio.takeIf { state.mode == DriveMode.SCENARIO })
             }
         }
     }
@@ -120,7 +124,7 @@ private fun ManeuverCard(state: GuidanceState, tollWon: Int?) {
     val colors = MaterialTheme.colorScheme
     Surface(shape = RoundedCornerShape(24.dp), shadowElevation = 2.dp) {
         Column {
-            Column(Modifier.fillMaxWidth().background(ManeuverBlue).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.fillMaxWidth().background(NavigationBlue).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                     TurnGlyph(turn?.kind ?: TurnKind.STRAIGHT, Modifier.size(60.dp), Color.White)
                     if (turn != null) DistanceReadout(turn.distanceMeters, Modifier.weight(1f), color = Color.White)
@@ -180,39 +184,35 @@ private fun AlertCard(alert: HazardAlert, hazard: Hazard?, progress: RouteProgre
 
 @Composable
 private fun FacilityPanel(state: GuidanceState) {
+    if (state.facilities.isEmpty()) return
     val colors = MaterialTheme.colorScheme
-    val facilities = (listOfNotNull(state.nextTurn) + state.upcomingTurns)
-        .filter { it.kind in listOf(TurnKind.ENTER_HIGHWAY, TurnKind.EXIT_HIGHWAY, TurnKind.TOLLGATE) }.take(2)
     Surface(shape = RoundedCornerShape(22.dp), shadowElevation = 1.dp) {
-        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            if (facilities.isNotEmpty()) facilities.forEach { item ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(if (item.kind == TurnKind.TOLLGATE) "TG" else "IC", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = ManeuverBlue)
-                    Text(item.text, Modifier.weight(1f), fontSize = 21.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(distanceText(item.distanceMeters), fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("앞으로 지날 시설", fontSize = 13.sp, color = colors.onSurfaceVariant)
+            state.facilities.forEach { item ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(when (item.kind) {
+                        FacilityKind.IC -> "IC"
+                        FacilityKind.JC -> "JC"
+                        FacilityKind.TOLLGATE -> "TG"
+                        FacilityKind.REST_AREA -> "휴게소"
+                        FacilityKind.ROADSIDE_STOP -> "쉼터"
+                    }, Modifier.width(44.dp), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = NavigationBlue)
+                    Text(item.name, Modifier.weight(1f), fontSize = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(distanceText(item.distanceMeters), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                 }
-            } else if (state.mode == DriveMode.SCENARIO) {
-                Text("IC·휴게소 · 표시 예시", fontSize = 12.sp, color = colors.onSurfaceVariant)
-                Row { Text("IC  성남IC", Modifier.weight(1f), fontSize = 18.sp); Text("2.4km", fontSize = 21.sp, fontWeight = FontWeight.SemiBold) }
-                Row { Text("휴  성남졸음쉼터", Modifier.weight(1f), fontSize = 18.sp); Text("3.2km", fontSize = 21.sp, fontWeight = FontWeight.SemiBold) }
-            } else {
-                Text("IC·휴게소", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text("시설 정보 연결 예정", fontSize = 14.sp, color = colors.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-private fun WeatherPanel(weather: List<WeatherCard>, example: Boolean) {
+private fun WeatherPanel(weather: List<WeatherCard>, remainingMeters: Int) {
     val colors = MaterialTheme.colorScheme
-    // 실제 예보가 없는 거리에는 값을 복제하지 않는다. 시연에서만 예시임을 밝히고 배치를 보여 준다.
-    val slots = if (example) listOf(
-        weather.firstOrNull(), weather.getOrNull(1)?.copy(label = "10km 앞"), weather.getOrNull(1)?.copy(label = "20km 앞")
-    ) else listOf(weather.firstOrNull { it.label == "지금" }, weather.firstOrNull { it.label == "10km 앞" }, weather.firstOrNull { it.label == "20km 앞" })
+    val slots = guidanceWeatherSlots(weather, remainingMeters)
     Surface(shape = RoundedCornerShape(22.dp), shadowElevation = 2.dp) {
         Column(Modifier.padding(12.dp)) {
-            if (example) Text("거리별 날씨 · 표시 예시", fontSize = 11.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            Text("거리별 날씨", fontSize = 11.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
             Row(Modifier.fillMaxWidth()) {
                 slots.forEachIndexed { index, item ->
                     if (index > 0) VerticalDivider(Modifier.height(108.dp), color = colors.outlineVariant)
