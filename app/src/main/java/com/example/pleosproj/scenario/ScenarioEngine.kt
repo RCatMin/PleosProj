@@ -70,7 +70,8 @@ class ScenarioEngine(
         weather = { _, seconds -> scenario.weather.at(seconds) { it.atSeconds }.toSample() },
         vehicle = vehicleAt(atSeconds),
         startSeconds = atSeconds,
-    )
+        departure = scenario.startTime.plusSeconds(atSeconds.toLong()),
+    ).copy(forecastBasis = "시연 시나리오의 가정 날씨")
 
     // --- 출발 전 브리핑 ---
 

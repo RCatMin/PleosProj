@@ -139,4 +139,25 @@ class RoutingTest {
         val excluded = r.compare.candidates.first { it.excluded }
         assertEquals("테헤란로 통제", excluded.riskSummary)
     }
+
+    @Test
+    fun `경로마다 지점별 통과 시각과 예보를 넣는다`() {
+        val r = Routing(source, rain(3.0), null, null).plan(from, to, "삼성역", VehicleSignals(), now = now)
+        assertEquals("기상청 초단기예보 · 6시간 이내", r.compare.forecastBasis)
+        r.compare.candidates.forEach { c ->
+            assertEquals("출발", c.forecast.first().label)
+            assertEquals("도착", c.forecast.last().label)
+            assertEquals(4, c.forecast.size)
+            assertEquals(now.toLocalTime(), c.forecast.first().passTime)
+            assertEquals(c.distanceMeters.toDouble(), c.forecast.last().distanceMeters.toDouble(), c.distanceMeters * 0.05)
+            assertTrue(c.forecast.all { it.weather != null && it.weather!!.rainMmPerHour == 3.0 })
+        }
+    }
+
+    @Test
+    fun `날씨를 못 받으면 경로 예보와 근거를 비운다`() {
+        val r = Routing(source, { throw java.io.IOException("끊김") }, null, null).plan(from, to, "삼성역", VehicleSignals(), now = now)
+        assertEquals(null, r.compare.forecastBasis)
+        assertTrue(r.compare.candidates.all { it.forecast.isEmpty() })
+    }
 }

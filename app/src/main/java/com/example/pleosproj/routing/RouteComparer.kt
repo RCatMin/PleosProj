@@ -16,7 +16,11 @@ import com.example.pleosproj.ui.state.HazardKind
 import com.example.pleosproj.ui.state.RiskLevel
 import com.example.pleosproj.ui.state.RouteCandidate
 import com.example.pleosproj.ui.state.RouteCompareState
+import com.example.pleosproj.ui.state.RouteForecastPoint
+import com.example.pleosproj.ui.state.WeatherCard
+import java.time.LocalTime
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 /** 경로 위·근처의 위험 지점. 시나리오 위험 지점과 실제 ITS 돌발상황이 모두 이 모양으로 들어온다 */
 data class RiskPoint(
@@ -36,6 +40,17 @@ data class RiskPoint(
 ) {
     fun closedAt(seconds: Double) = closedFromSeconds != null && seconds >= closedFromSeconds
 }
+
+/** 화면용 날씨 카드. 강수 확률은 예보값이 없어 강수량으로 어림한다 */
+internal fun WeatherSample.toCard(label: String) = WeatherCard(
+    label, temperatureC.roundToInt(),
+    when {
+        rainMmPerHour >= 10 -> 90
+        rainMmPerHour > 0 || snowing -> 70
+        else -> 10
+    },
+    rainMmPerHour, snowing,
+)
 
 /** 어떤 지점·시각의 날씨 */
 data class WeatherSample(
@@ -64,6 +79,10 @@ class RouteComparer(private val hazardRadiusMeters: Double = 150.0) {
         weather: WeatherAlong,
         vehicle: VehicleSignals,
         startSeconds: Double = 0.0,
+        /** 출발 시각. 있으면 경로마다 지점별 통과 시각과 예보([RouteCandidate.forecast])를 넣는다 */
+        departure: LocalTime? = null,
+        /** 예보를 볼 수 있는 시간(초). 이보다 늦게 지나는 지점은 예보 없음으로 둔다 */
+        forecastHorizonSeconds: Double = Double.MAX_VALUE,
     ): RouteCompareState {
         require(routes.isNotEmpty()) { "비교할 경로가 없다" }
         val prepared = routes.map { Prepared(it, onRoute(it, hazards)) }
@@ -82,6 +101,7 @@ class RouteComparer(private val hazardRadiusMeters: Double = 150.0) {
                 riskSummary = summary(p, weather, vehicle, startSeconds, a.excluded, a.band.toLevel()),
                 routeLine = p.route.line.map { GeoPoint(it.lat, it.lng) },
                 hazards = p.near.map { (h, along) -> uiHazard(h, along, p, weather, vehicle, startSeconds) },
+                forecast = departure?.let { forecast(p, weather, startSeconds, it, forecastHorizonSeconds) }.orEmpty(),
             )
         }
         return RouteCompareState(
@@ -108,6 +128,24 @@ class RouteComparer(private val hazardRadiusMeters: Double = 150.0) {
         val (along, off) = RouteGeometry.project(route.line, h.position)
         if (off <= (h.radiusMeters ?: hazardRadiusMeters)) h to along else null
     }
+
+    /** 출발·1/3·2/3·도착 네 지점을 지날 시각과 그때의 예보 */
+    private fun forecast(p: Prepared, weather: WeatherAlong, start: Double, departure: LocalTime, horizon: Double): List<RouteForecastPoint> =
+        listOf(0.0, 1 / 3.0, 2 / 3.0, 1.0).map { ratio ->
+            val along = p.length * ratio
+            val passAt = p.passAt(along, start)
+            val label = when (ratio) {
+                0.0 -> "출발"
+                1.0 -> "도착"
+                else -> "%.1fkm".format(along / 1000)
+            }
+            RouteForecastPoint(
+                label = label,
+                distanceMeters = along.roundToInt(),
+                passTime = departure.plusSeconds((passAt - start).roundToLong()).withNano(0),
+                weather = if (passAt - start > horizon) null else weather.at(RouteGeometry.pointAt(p.route.line, along), passAt).toCard(label),
+            )
+        }
 
     /** 1km 구간마다 그 구간을 지날 시각의 날씨와 근처 위험 지점으로 조건을 만든다 */
     private fun segments(p: Prepared, weather: WeatherAlong, start: Double): List<RouteSegment> =

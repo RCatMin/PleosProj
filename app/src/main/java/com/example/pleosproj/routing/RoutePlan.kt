@@ -1,6 +1,7 @@
 package com.example.pleosproj.routing
 
 import com.example.pleosproj.risk.LatLng
+import com.example.pleosproj.ui.state.FacilityKind
 import com.example.pleosproj.ui.state.TurnKind
 
 /**
@@ -27,7 +28,12 @@ data class RoutePlan(
     val provider: String = "",
     /** 카카오모빌리티 대신 OSRM으로 계산했을 때 그 까닭. 아니면 null */
     val fallbackReason: String? = null,
+    /** 경로 위 IC·JC·톨게이트·휴게소 (카카오모빌리티만) */
+    val facilities: List<FacilityPoint> = emptyList(),
 )
+
+/** 경로 위 시설. [atMeters]는 경로 출발점부터 경로선을 따라 잰 거리 */
+data class FacilityPoint(val atMeters: Double, val kind: FacilityKind, val name: String)
 
 /** 막히는 구간. [startMeters]~[endMeters]는 경로 출발점부터의 거리 */
 data class Congestion(val startMeters: Double, val endMeters: Double, val heavy: Boolean, val roadName: String)

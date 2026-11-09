@@ -3,6 +3,7 @@ package com.example.pleosproj.routing
 import com.example.pleosproj.risk.LatLng
 import com.example.pleosproj.risk.RouteGeometry
 import com.example.pleosproj.risk.Vulnerability
+import com.example.pleosproj.ui.state.FacilityKind
 import com.example.pleosproj.ui.state.HazardKind
 import com.example.pleosproj.ui.state.TurnKind
 import org.json.JSONArray
@@ -58,12 +59,18 @@ object KakaoNaviParser {
 
         val turns = mutableListOf<RouteTurn>()
         val hazards = mutableListOf<RiskPoint>()
+        val facilities = mutableListOf<FacilityPoint>()
         var at = 0.0
         for (s in sections) for (g in s.getJSONArray("guides").objects()) {
             at += g.optDouble("distance", 0.0)
             val type = g.optInt("type")
             val text = g.optString("guidance")
             if (type == 100) continue // 출발지
+            facility(type, g.optString("name"))?.let { (k, n) ->
+                if (facilities.none { it.name == n }) facilities += FacilityPoint(at * scale, k, n)
+            }
+            // 29는 IC·휴게소 등을 지난다는 안내("12시 방향")라 회전으로 넣지 않는다
+            if (type == FACILITY_PASS) continue
             val kind = if (type == 101) TurnKind.ARRIVE else kind(text) ?: continue
             turns += RouteTurn(if (type == 101) length else at * scale, kind, if (type == 101) "목적지" else text)
             if (text.contains("지하차도 진입")) {
@@ -87,7 +94,32 @@ object KakaoNaviParser {
             hazards = hazards,
             congestion = congestion.map { it.copy(startMeters = it.startMeters * scale, endMeters = it.endMeters * scale) },
             provider = "kakaomobility",
+            facilities = facilities,
         )
+    }
+
+    private const val FACILITY_PASS = 29
+
+    /**
+     * 안내 지점이 시설이면 종류와 이름. 카카오 안내 type: 29 시설 통과, 82 분기점(JC), 84 톨게이트,
+     * 12 고속도로 입구, 9 고속도로 출구. 이름 끝으로 IC·휴게소 등을 가른다
+     */
+    internal fun facility(type: Int, name: String): Pair<FacilityKind, String>? {
+        if (name.isBlank()) return null
+        val byName = when {
+            name.endsWith("휴게소") -> FacilityKind.REST_AREA
+            name.endsWith("졸음쉼터") -> FacilityKind.ROADSIDE_STOP
+            name.endsWith("JC") -> FacilityKind.JC
+            name.endsWith("TG") || name.endsWith("요금소") -> FacilityKind.TOLLGATE
+            name.endsWith("IC") -> FacilityKind.IC
+            else -> null
+        }
+        return when (type) {
+            FACILITY_PASS, 9, 12 -> byName
+            82 -> FacilityKind.JC
+            84 -> FacilityKind.TOLLGATE
+            else -> null
+        }?.let { it to name }
     }
 
     /** 안내 문구로 회전 종류를 정한다. 안내할 필요가 없는 것(직진 등)은 null */
