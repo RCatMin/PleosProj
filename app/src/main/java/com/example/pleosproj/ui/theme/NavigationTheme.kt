@@ -35,8 +35,8 @@ internal fun NavigationTheme(night: Boolean, content: @Composable () -> Unit) {
         surfaceVariant = Color(0xFF29374E), background = Color(0xFF161B24), onSurface = Color(0xFFF4F5F8),
         onSurfaceVariant = Color(0xFFB6BDCC), outlineVariant = Color(0xFF444B5A),
     ) else lightColorScheme(
-        primary = ManeuverBlue, onPrimary = Color.White, surface = Color.White,
-        surfaceVariant = Color(0xFFEEF4FF), background = Color(0xFFF5F6F8), onSurface = Color(0xFF23252B),
+        primary = RoutePurple, onPrimary = Color.White, surface = Color.White,
+        surfaceVariant = Color(0xFFF3EFFB), background = Color(0xFFF5F6F8), onSurface = Color(0xFF23252B),
         onSurfaceVariant = Color(0xFF747B8A), outlineVariant = Color(0xFFE0E3E9),
     )
     MaterialTheme(colorScheme = scheme, typography = TypographyWithPretendard, content = content)

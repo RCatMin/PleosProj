@@ -219,7 +219,6 @@ class MapSurface(context: Context, savedState: Bundle?) {
             val data = RouteCompareMapData(state)
             style.getSourceAs<GeoJsonSource>("guidance-route")?.setGeoJson(empty)
             style.getSourceAs<GeoJsonSource>("compare-routes")?.setGeoJson(data.routeFeatures)
-            style.getSourceAs<GeoJsonSource>("compare-labels")?.setGeoJson(data.labelFeatures)
             style.getSourceAs<GeoJsonSource>("hazards")?.setGeoJson(data.hazardFeatures)
             style.getSourceAs<GeoJsonSource>("locations")?.setGeoJson(data.locationFeatures)
             MapBuildingVisibility.update(style, data.routes, emptyList())
@@ -236,7 +235,6 @@ class MapSurface(context: Context, savedState: Bundle?) {
             val data = GuidanceMapData(state)
             if (previous == null) {
                 style.getSourceAs<GeoJsonSource>("compare-routes")?.setGeoJson(empty)
-                style.getSourceAs<GeoJsonSource>("compare-labels")?.setGeoJson(empty)
             }
             if (previous == null || previous.routeLine != state.routeLine)
                 style.getSourceAs<GeoJsonSource>("guidance-route")?.setGeoJson(data.routeFeatures)
@@ -335,9 +333,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
     }
 
     private fun addComparisonLayers(style: Style) {
-        for (source in listOf("compare-routes", "compare-labels")) {
-            style.addSource(GeoJsonSource(source, FeatureCollection.fromFeatures(emptyArray<Feature>())))
-        }
+        style.addSource(GeoJsonSource("compare-routes", FeatureCollection.fromFeatures(emptyArray<Feature>())))
         val excluded = Expression.eq(Expression.get("excluded"), true)
         val selected = Expression.eq(Expression.get("selected"), true)
         val alternative = Expression.all(Expression.eq(Expression.get("selected"), false),
@@ -357,11 +353,6 @@ class MapSurface(context: Context, savedState: Bundle?) {
         ))
         style.addLayer(LineLayer("compare-selected", "compare-routes").withFilter(selected).withProperties(
             lineColor("#7145D6"), lineWidth(9f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
-        ))
-        style.addLayer(SymbolLayer("compare-route-labels", "compare-labels").withProperties(
-            textFont(arrayOf("Noto Sans Regular")), textField(Expression.get("label")), textSize(22f),
-            textColor("#40344F"), textHaloColor("#FFFFFF"), textHaloWidth(4f),
-            textOffset(arrayOf(0f, -2.2f)), textAllowOverlap(false),
         ))
     }
 

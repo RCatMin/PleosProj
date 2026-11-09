@@ -1,15 +1,15 @@
 package com.example.pleosproj.ui.guidance
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pleosproj.ui.hazardColor
+import com.example.pleosproj.ui.hazardName
 import com.example.pleosproj.ui.state.*
 import kotlin.math.max
 
@@ -30,42 +31,57 @@ internal fun durationText(seconds: Int): String {
 }
 
 @Composable
-internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, modifier: Modifier = Modifier, hazards: List<Hazard> = emptyList()) {
+internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, modifier: Modifier = Modifier,
+    hazards: List<Hazard> = emptyList(), nextTurn: TurnInstruction? = null) {
     val current = progress.currentRatio.coerceIn(0.0, 1.0)
     val colors = androidx.compose.material3.MaterialTheme.colorScheme
-    Column(modifier, horizontalAlignment = Alignment.End) {
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp)) {
+    val dark = colors.surface.luminance() < .5f
+    val purple = if (dark) Color(0xFFB6A0FF) else Color(0xFF7145D6)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("남은 경로", fontSize = 14.sp, color = colors.onSurfaceVariant)
+        Text(distanceText(remainingMeters), fontSize = 27.sp, fontWeight = FontWeight.Bold)
+        Text("목적지", fontSize = 12.sp, color = colors.onSurfaceVariant)
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val height = maxHeight
-            Canvas(Modifier.fillMaxSize().semantics { contentDescription = "${distanceText(remainingMeters)} 남음 · 전체 경로의 ${(current * 100).toInt()}% 지점" }) {
-                val x = size.width - 22.dp.toPx()
-                fun y(ratio: Double): Float = ((1 - ratio.coerceIn(0.0, 1.0)) * size.height).toFloat()
-                drawLine(colors.surface, Offset(x, 0f), Offset(x, size.height), 18.dp.toPx(), StrokeCap.Round)
-                drawLine(Color(0xFF7145D6), Offset(x, 0f), Offset(x, y(current)), 7.dp.toPx(), StrokeCap.Round)
-                progress.segments.filter { max(it.startRatio, it.endRatio) >= current }.forEach { segment ->
-                    if (segment.kind == SegmentKind.CONGESTION_HEAVY || segment.kind == SegmentKind.CONGESTION_SLOW) drawLine(segmentColor(segment), Offset(x, y(segment.startRatio)),
-                        Offset(x, y(segment.endRatio)), 12.dp.toPx(), StrokeCap.Round)
-                }
-                drawCircle(colors.surface, 15.dp.toPx(), Offset(x, y(current)))
-                drawCircle(Color(0xFF7145D6), 10.dp.toPx(), Offset(x, y(current)))
+            val labeled = progressForLabels(progress, hazards).let { base ->
+                if (nextTurn == null || progress.totalMeters <= 0) base else base.copy(segments = base.segments +
+                    ProgressSegment(SegmentKind.TURN, (current + nextTurn.distanceMeters.toDouble() / progress.totalMeters).coerceIn(0.0, 1.0),
+                        (current + nextTurn.distanceMeters.toDouble() / progress.totalMeters).coerceIn(0.0, 1.0), nextTurn.text))
             }
-            railLabels(progressForLabels(progress, hazards), height.value).forEach { item ->
+            Canvas(Modifier.fillMaxSize().semantics { contentDescription = "${distanceText(remainingMeters)} 남음 · 전체 경로의 ${(current * 100).toInt()}% 지점" }) {
+                val x = 10.dp.toPx()
+                fun y(ratio: Double): Float = ((1 - ratio.coerceIn(0.0, 1.0)) * size.height).toFloat()
+                drawLine(purple.copy(alpha = .18f), Offset(x, 0f), Offset(x, size.height), 10.dp.toPx())
+                drawLine(purple, Offset(x, 0f), Offset(x, y(current)), 10.dp.toPx())
+                progress.segments.filter { max(it.startRatio, it.endRatio) >= current }.forEach { segment ->
+                    if (segment.kind == SegmentKind.CONGESTION_HEAVY || segment.kind == SegmentKind.CONGESTION_SLOW)
+                        drawLine(segmentColor(segment), Offset(x, y(segment.startRatio)), Offset(x, y(segment.endRatio)), 10.dp.toPx(), StrokeCap.Round)
+                }
+                val here = y(current).coerceIn(14.dp.toPx(), (size.height - 14.dp.toPx()).coerceAtLeast(14.dp.toPx()))
+                drawCircle(colors.surface, 15.dp.toPx(), Offset(x, here))
+                drawPath(Path().apply {
+                    moveTo(x, here - 11.dp.toPx()); lineTo(x + 8.dp.toPx(), here + 8.dp.toPx())
+                    lineTo(x, here + 4.dp.toPx()); lineTo(x - 8.dp.toPx(), here + 8.dp.toPx()); close()
+                }, purple)
+            }
+            railLabels(labeled, height.value).forEach { item ->
                 val segment = item.segment
                 val distance = ((segment.startRatio - current).coerceAtLeast(0.0) * progress.totalMeters).toInt()
-                Row(Modifier.fillMaxWidth().offset(y = item.top.dp), horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp), color = colors.surface) {
-                        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.End) {
-                            Text(if (segment.endRatio > segment.startRatio && current >= segment.startRatio) "지나는 중" else distanceText(distance),
-                                fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                    if (segment.kind == SegmentKind.HAZARD) HazardGlyph(segment.hazardKind ?: HazardKind.FLOOD, Modifier.size(32.dp))
-                    else Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
-                        Canvas(Modifier.size(18.dp)) { drawCircle(segmentColor(segment)) }
-                    }
+                Column(Modifier.padding(start = 26.dp).offset(y = item.top.dp)) {
+                    Text(when (segment.kind) {
+                        SegmentKind.HAZARD -> hazardName(segment.hazardKind ?: HazardKind.FLOOD) + " 주의"
+                        SegmentKind.CONGESTION_HEAVY -> "정체"
+                        SegmentKind.CONGESTION_SLOW -> "서행"
+                        SegmentKind.TURN -> segment.label?.ifBlank { "다음 회전" } ?: "다음 회전"
+                    }, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (dark) lerp(segmentColor(segment), Color.White, .35f) else segmentColor(segment), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(if (segment.endRatio > segment.startRatio && current >= segment.startRatio) "지나는 중" else distanceText(distance),
+                        fontSize = 12.sp, color = colors.onSurfaceVariant)
                 }
             }
+            Text("내 위치", Modifier.padding(start = 26.dp).offset(y = (height * (1 - current).toFloat() - 16.dp)
+                .coerceIn(0.dp, (height - 28.dp).coerceAtLeast(0.dp))), fontSize = 12.sp, color = purple)
         }
+        Text("출발", fontSize = 12.sp, color = colors.onSurfaceVariant)
     }
 }
 

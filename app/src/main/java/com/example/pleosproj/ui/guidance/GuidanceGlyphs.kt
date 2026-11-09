@@ -5,7 +5,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -110,10 +109,11 @@ internal fun WeatherGlyph(rain: Boolean, snow: Boolean, modifier: Modifier, anim
         initialValue = 0f, targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing)), label = "weather-cycle",
     ) else null
+    val weatherInk = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
     Canvas(modifier) {
         val unit = size.minDimension / 100f
         val cycle = phase?.value ?: 0f
-        val color = Color(0xFF6E9CDE)
+        val color = weatherInk
         val cloud = Path().apply {
             moveTo(20 * unit, 62 * unit)
             cubicTo(0f, 61 * unit, 4 * unit, 33 * unit, 26 * unit, 36 * unit)
@@ -123,11 +123,8 @@ internal fun WeatherGlyph(rain: Boolean, snow: Boolean, modifier: Modifier, anim
         }
         // 아이콘의 작은 범위에서만 움직이고, 정보의 자리와 크기는 유지한다.
         translate(if (animated) sin(cycle * 2 * PI).toFloat() * 1.5f * unit else 0f, 0f) {
-            drawPath(cloud, Brush.verticalGradient(if (rain || snow)
-                listOf(Color(0xFFF1F8FF), Color(0xFFAACCF4)) else listOf(Color(0xFFEAF0F8), Color(0xFFA8B9CD)),
-                startY = 12 * unit, endY = 68 * unit))
-            drawLine(Color(0xFFC6D4E8).copy(alpha = .5f), Offset(23 * unit, 71 * unit), Offset(77 * unit, 71 * unit),
-                5 * unit, StrokeCap.Round)
+            drawPath(cloud, color.copy(alpha = .08f))
+            drawPath(cloud, color, style = Stroke(3.2f * unit, cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
         if (rain || snow) for ((index, x) in listOf(29f, 50f, 71f).withIndex()) {
             val fall = if (animated) (cycle * 3 + index * 0.33f) % 1f else 0.5f

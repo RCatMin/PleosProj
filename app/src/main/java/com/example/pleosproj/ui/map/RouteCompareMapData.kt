@@ -22,16 +22,6 @@ internal class RouteCompareMapData(state: RouteCompareState) {
             addBooleanProperty("excluded", candidate.excluded)
         }
     })
-    val labelFeatures: FeatureCollection = FeatureCollection.fromFeatures(drawable.map { candidate ->
-        val point = candidate.routeLine[candidate.routeLine.size / 2]
-        Feature.fromGeometry(Point.fromLngLat(point.lng, point.lat)).apply {
-            addStringProperty("label", when {
-                candidate.excluded -> "${candidate.name} · 제외"
-                candidate.id == selectedId -> "${candidate.name} · 선택"
-                else -> candidate.name
-            })
-        }
-    })
     private val hazards = state.candidates.flatMap { it.hazards }.distinctBy { it.id }
     val hazardFeatures: FeatureCollection = FeatureCollection.fromFeatures(hazards.map { hazard ->
         Feature.fromGeometry(Point.fromLngLat(hazard.position.lng, hazard.position.lat)).apply {

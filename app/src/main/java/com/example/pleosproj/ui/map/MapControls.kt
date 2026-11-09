@@ -19,16 +19,16 @@ import androidx.compose.ui.unit.sp
 internal fun MapControls(surface: MapSurface, voiceMuted: Boolean, onToggleVoice: () -> Unit, modifier: Modifier = Modifier) {
     var menu by remember { mutableStateOf<String?>(null) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(shape = RoundedCornerShape(12.dp), shadowElevation = 2.dp) {
+        Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
             Column {
                 MapControl("지도 확대", "plus", joined = true) { surface.zoomBy(1.0) }
-                HorizontalDivider(Modifier.width(54.dp).padding(horizontal = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(Modifier.width(46.dp).padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 MapControl("지도 축소", "minus", joined = true) { surface.zoomBy(-1.0) }
             }
         }
         Box {
             MapControl("지도 보기 방식 · ${surface.viewpoint.label}", "compass") { menu = "view" }
-            Surface(Modifier.align(Alignment.BottomCenter).offset(y = 2.dp), color = com.example.pleosproj.ui.theme.ManeuverBlue,
+            Surface(Modifier.align(Alignment.BottomCenter).offset(y = 2.dp), color = com.example.pleosproj.ui.theme.RoutePurple,
                 contentColor = androidx.compose.ui.graphics.Color.White, shape = RoundedCornerShape(4.dp)) {
                 Text(when (surface.viewpoint) { MapViewpoint.OVERHEAD -> "3D"; MapViewpoint.NORTH_UP -> "N"; MapViewpoint.DRIVER -> "앞" },
                     Modifier.padding(horizontal = 3.dp), fontSize = 9.sp)
@@ -59,9 +59,9 @@ internal fun MapControls(surface: MapSurface, voiceMuted: Boolean, onToggleVoice
 @Composable
 private fun MapControl(label: String, glyph: String, joined: Boolean = false, onClick: () -> Unit) {
     val ink = MaterialTheme.colorScheme.onSurface
-    Surface(shape = RoundedCornerShape(if (joined) 0.dp else 12.dp), shadowElevation = if (joined) 0.dp else 2.dp) {
-        IconButton(onClick = onClick, modifier = Modifier.size(54.dp).semantics { contentDescription = label }) {
-            Canvas(Modifier.size(24.dp)) {
+    Surface(shape = RoundedCornerShape(if (joined) 0.dp else 16.dp), shadowElevation = if (joined) 0.dp else 2.dp) {
+        IconButton(onClick = onClick, modifier = Modifier.size(46.dp).semantics { contentDescription = label }) {
+            Canvas(Modifier.size(22.dp)) {
                 val w = size.width; val h = size.height; val c = center
                 val stroke = 2.2.dp.toPx()
                 fun line(x: Float, y: Float, xx: Float, yy: Float) = drawLine(ink, Offset(w*x,h*y), Offset(w*xx,h*yy), stroke)

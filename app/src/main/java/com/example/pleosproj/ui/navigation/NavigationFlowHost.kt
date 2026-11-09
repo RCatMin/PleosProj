@@ -127,7 +127,7 @@ internal fun NavigationFlowHost(surface: MapSurface, lifecycle: Lifecycle, parke
                     }
                     NavigationPage.COMPARE -> flow.comparison?.let { comparison ->
                         RouteCompareScreen(comparison, onSelect = flow::selectRoute, onStart = { id -> if (flow.comparingCurrent) flow.startComparedRoute(id) else flow.showBriefing(id) },
-                            onFitRoutes = surface::fitRoute, startActionLabel = "안내 시작",
+                            onFitRoutes = surface::fitRoute, startActionLabel = "브리핑 보기",
                             currentRemainingSeconds = flow.comparisonRemainingSeconds,
                             onContinue = if (flow.comparingCurrent) flow::continueGuidance else null,
                             mapControls = { MapControls(surface, !flow.voiceEnabled, flow::toggleVoice) },
