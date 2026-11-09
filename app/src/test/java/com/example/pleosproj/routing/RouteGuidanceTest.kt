@@ -38,7 +38,7 @@ class RouteGuidanceTest {
         assertEquals(length - 100, g.remainingMeters.toDouble(), 1.0)
         assertEquals(100 / length, g.progress.currentRatio, 1e-6)
         assertTrue(g.progress.segments.any { it.kind == SegmentKind.TURN })
-        assertEquals(listOf("지금", "목적지"), g.weather.map { it.label })
+        assertEquals(listOf("지금", "10km 앞", "목적지"), g.weather.map { it.label })
     }
 
     @Test
@@ -79,5 +79,22 @@ class RouteGuidanceTest {
         val t = RouteTracker(route)
         t.update(at(2000.0), 0.0)
         assertEquals(2000.0, t.update(at(1990.0), 1.0).traveled, 15.0)
+    }
+
+    @Test
+    fun `앞으로 지날 시설을 남은 거리와 함께 넘긴다`() {
+        val withFacilities = route.copy(facilities = listOf(
+            FacilityPoint(500.0, com.example.pleosproj.ui.state.FacilityKind.IC, "판교IC"),
+            FacilityPoint(3000.0, com.example.pleosproj.ui.state.FacilityKind.TOLLGATE, "서울TG"),
+        ))
+        val g = RouteGuidance(withFacilities, "삼성역", emptyList(), dry, now, VehicleSignals()).state(1000.0, at(1000.0), null, VehicleSignals(), now)
+        assertEquals(listOf("서울TG"), g.facilities.map { it.name })
+        assertEquals(2000, g.facilities.first().distanceMeters)
+    }
+
+    @Test
+    fun `목적지보다 먼 거리의 날씨 카드는 넣지 않는다`() {
+        val g = guidance().state(length - 5000, at(length - 5000), null, VehicleSignals(), now)
+        assertEquals(listOf("지금", "목적지"), g.weather.map { it.label })
     }
 }

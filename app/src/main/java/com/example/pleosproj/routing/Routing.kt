@@ -97,7 +97,9 @@ class Routing(
         // 길찾기가 알려 준 지하차도 같은 지점과 ITS 돌발상황을 함께 쓴다
         val hazards = candidates.flatMap { it.hazards }.distinctBy { it.title to it.position } + riskPoints(candidates) +
             freezingPoints(candidates)
-        val state = comparer.compare(destinationName, candidates, hazards, weather, vehicle)
+        val state = comparer.compare(destinationName, candidates, hazards, weather, vehicle,
+            departure = if (missing) null else now.toLocalTime(), forecastHorizonSeconds = FORECAST_HORIZON_SECONDS,
+        ).copy(forecastBasis = if (missing) null else "기상청 초단기예보 · 6시간 이내")
         return RoutePlanResult(state, candidates, missing, hazards, weather, now,
             fallbackReason = candidates.firstNotNullOfOrNull { it.fallbackReason })
     }
@@ -205,6 +207,9 @@ class Routing(
     }
 
     companion object {
+        /** 기상청 초단기예보는 발표 시각부터 6시간까지 나온다 */
+        const val FORECAST_HORIZON_SECONDS = 6 * 3600.0
+
         /** 앱이 켜져 있는 동안 같이 쓴다 (받은 자료를 다시 받지 않게) */
         @Volatile private var finder: FreezingSpotFinder? = null
 

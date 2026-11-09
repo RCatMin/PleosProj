@@ -87,4 +87,20 @@ class KakaoNaviParserTest {
         // 첫 경로가 가장 빠르지 않으면 가장 빠른 길을 따로 표시한다
         assertEquals(listOf("가장 짧은 길", "가장 빠른 길"), Candidates.nameByRole(listOf(b, a)).map { it.name })
     }
+
+    @Test
+    fun `고속도로 IC·JC·톨게이트·휴게소를 시설로 읽고 회전 안내에는 넣지 않는다`() {
+        // 성남→양주 실제 응답: 수도권제1순환고속도로
+        val plan = KakaoNaviParser.parse(javaClass.getResource("/api/kakaonavi_seongnam_yangju.json")!!.readText(), "추천 길").first()
+        val byName = plan.facilities.associateBy { it.name }
+        assertEquals(com.example.pleosproj.ui.state.FacilityKind.IC, byName.getValue("송파IC").kind)
+        assertEquals(com.example.pleosproj.ui.state.FacilityKind.JC, byName.getValue("서하남JC").kind)
+        assertEquals(com.example.pleosproj.ui.state.FacilityKind.TOLLGATE, byName.getValue("구리남양주TG").kind)
+        assertEquals(com.example.pleosproj.ui.state.FacilityKind.REST_AREA, byName.getValue("구리휴게소").kind)
+        assertEquals(com.example.pleosproj.ui.state.FacilityKind.ROADSIDE_STOP, byName.getValue("성남졸음쉼터").kind)
+        // 출발부터 거리 순서
+        assertEquals(plan.facilities.map { it.atMeters }.sorted(), plan.facilities.map { it.atMeters })
+        // 시설을 지난다는 "12시 방향" 안내는 회전이 아니다
+        assertTrue(plan.turns.none { it.text == "12시 방향" })
+    }
 }

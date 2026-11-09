@@ -15,6 +15,7 @@ import com.example.pleosproj.ui.state.HazardAlert
 import com.example.pleosproj.ui.state.HazardKind
 import com.example.pleosproj.ui.state.ProgressSegment
 import com.example.pleosproj.ui.state.RiskLevel
+import com.example.pleosproj.ui.state.RouteFacility
 import com.example.pleosproj.ui.state.RouteProgress
 import com.example.pleosproj.ui.state.SegmentKind
 import com.example.pleosproj.ui.state.TurnInstruction
@@ -102,8 +103,11 @@ class RouteGuidance(
                     ProgressSegment(SegmentKind.TURN, it.atMeters / length, it.atMeters / length, it.text.ifBlank { null })
                 } + congestionSegments + hazardSegments,
             ),
-            weather = weatherCards(position, elapsed, remainingSeconds),
+            weather = weatherCards(position, traveled, elapsed, remainingSeconds),
             alert = alert(hazards, traveled),
+            facilities = route.facilities.filter { it.atMeters > traveled }.take(MAX_FACILITIES).map {
+                RouteFacility(it.kind, it.name, (it.atMeters - traveled).roundToInt())
+            },
         )
     }
 
@@ -135,21 +139,23 @@ class RouteGuidance(
         )
     }
 
-    /** 지금 위치와, 도착할 무렵 목적지 날씨 */
-    private fun weatherCards(position: LatLng, elapsed: Double, remainingSeconds: Int): List<WeatherCard> {
-        fun card(label: String, w: WeatherSample) = WeatherCard(
-            label, w.temperatureC.roundToInt(),
-            when {
-                w.rainMmPerHour >= 10 -> 90
-                w.rainMmPerHour > 0 || w.snowing -> 70
-                else -> 10
-            },
-            w.rainMmPerHour, w.snowing,
-        )
-        return listOf(
-            card("지금", weather.at(position, elapsed)),
-            card("목적지", weather.at(route.line.last(), elapsed + remainingSeconds)),
-        )
+    /**
+     * 지금 위치, 10km·20km 앞, 도착할 무렵 목적지 날씨. 앞 지점은 지날 예상 시각의 예보다.
+     * 목적지보다 먼 거리의 카드는 넣지 않는다 (가짜 값을 만들지 않는다)
+     */
+    private fun weatherCards(position: LatLng, traveled: Double, elapsed: Double, remainingSeconds: Int): List<WeatherCard> {
+        val remaining = (length - traveled).coerceAtLeast(0.0)
+        val ahead = AHEAD_METERS.filter { it < remaining }.map { d ->
+            val passAt = elapsed + route.durationSeconds * (d / length)
+            weather.at(RouteGeometry.pointAt(route.line, traveled + d), passAt).toCard("${(d / 1000).roundToInt()}km 앞")
+        }
+        return listOf(weather.at(position, elapsed).toCard("지금")) + ahead +
+            weather.at(route.line.last(), elapsed + remainingSeconds).toCard("목적지")
+    }
+
+    private companion object {
+        val AHEAD_METERS = listOf(10_000.0, 20_000.0)
+        const val MAX_FACILITIES = 5
     }
 
     /** [id] 위험 지점 위치 (우회할 때 쓴다) */
