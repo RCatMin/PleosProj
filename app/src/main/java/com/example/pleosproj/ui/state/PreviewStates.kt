@@ -36,6 +36,14 @@ object PreviewStates {
 
     private val weatherNow = WeatherCard("지금", 9, 60, 3.5, snow = false)
     private val weatherAhead = WeatherCard("10km 앞", 8, 80, 18.0, snow = false)
+    private val weatherFar = WeatherCard("20km 앞", 7, 70, 6.0, snow = false)
+
+    private fun forecastOf(distance: Int, minutes: Int) = listOf(
+        RouteForecastPoint("출발", 0, LocalTime.of(19, 13), weatherNow.copy(label = "출발")),
+        RouteForecastPoint("${"%.1f".format(distance / 2 / 1000.0)}km", distance / 2, LocalTime.of(19, 13).plusMinutes(minutes / 2L),
+            weatherAhead.copy(label = "중간")),
+        RouteForecastPoint("도착", distance, LocalTime.of(19, 13).plusMinutes(minutes.toLong()), weatherAhead.copy(label = "도착")),
+    )
 
     /** 시나리오 모드 안내 화면: 경로선 있음, 위험 알림 있음 */
     val guidanceScenario = GuidanceState(
@@ -66,10 +74,15 @@ object PreviewStates {
                 ProgressSegment(SegmentKind.TURN, 0.955, 0.955, "좌회전"),
             ),
         ),
-        weather = listOf(weatherNow, weatherAhead),
+        weather = listOf(weatherNow, weatherAhead, weatherFar),
         alert = HazardAlert(
             hazardId = "ice-1", title = "앞쪽 결빙 주의",
             message = "1.6km 앞 언덕길, 기온 1℃", level = RiskLevel.MEDIUM, suggestsDetour = false,
+        ),
+        facilities = listOf(
+            RouteFacility(FacilityKind.IC, "송파IC", 2400),
+            RouteFacility(FacilityKind.JC, "서하남JC", 7200),
+            RouteFacility(FacilityKind.REST_AREA, "구리휴게소", 18300),
         ),
     )
 
@@ -91,21 +104,25 @@ object PreviewStates {
                 id = "a", name = "최단", durationSeconds = 32 * 60, distanceMeters = 3360, tollWon = 0,
                 riskScore = 0.74, riskLevel = RiskLevel.HIGH, excluded = true,
                 riskSummary = "선릉역 부근 침수 통제", routeLine = routeClosed, hazards = listOf(closure),
+                forecast = forecastOf(3360, 32),
             ),
             RouteCandidate(
                 id = "b", name = "추천", durationSeconds = 37 * 60, distanceMeters = 4890, tollWon = 0,
                 riskScore = 0.21, riskLevel = RiskLevel.LOW, excluded = false,
                 riskSummary = "결빙 주의 1곳", routeLine = routeSafe, hazards = listOf(ice),
+                forecast = forecastOf(4890, 37),
             ),
             RouteCandidate(
                 id = "c", name = "도곡로", durationSeconds = 44 * 60, distanceMeters = 5300, tollWon = 0,
                 riskScore = 0.42, riskLevel = RiskLevel.MEDIUM, excluded = false,
                 riskSummary = "대치 지하차도 지남, 시간 +38%", routeLine = routeLong, hazards = listOf(flood),
+                forecast = forecastOf(5300, 44),
             ),
         ),
         selectedId = "b",
         recommendedId = "b",
         adviceWhenAllRisky = null,
+        forecastBasis = "기상청 초단기예보 · 6시간 이내",
     )
 
     /** 출발 전 브리핑: 위험 있음 */
