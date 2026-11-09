@@ -28,7 +28,7 @@ internal fun MapControls(surface: MapSurface, voiceMuted: Boolean, onToggleVoice
         }
         Box {
             MapControl("지도 보기 방식 · ${surface.viewpoint.label}", "compass") { menu = "view" }
-            Surface(Modifier.align(Alignment.BottomCenter).offset(y = 2.dp), color = com.example.pleosproj.ui.theme.RoutePurple,
+            Surface(Modifier.align(Alignment.BottomCenter).offset(y = 2.dp), color = com.example.pleosproj.ui.theme.NavigationBlue,
                 contentColor = androidx.compose.ui.graphics.Color.White, shape = RoundedCornerShape(4.dp)) {
                 Text(when (surface.viewpoint) { MapViewpoint.OVERHEAD -> "3D"; MapViewpoint.NORTH_UP -> "N"; MapViewpoint.DRIVER -> "앞" },
                     Modifier.padding(horizontal = 3.dp), fontSize = 9.sp)

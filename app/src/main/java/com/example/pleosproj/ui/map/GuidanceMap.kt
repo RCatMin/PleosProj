@@ -35,8 +35,9 @@ internal fun GuidanceMap(surface: MapSurface, state: GuidanceState, modifier: Mo
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         val topInset = maxHeight * .20f
-        LaunchedEffect(surface, topInset, density) {
-            with(density) { surface.setViewportInsets(316.dp.roundToPx(), topInset.roundToPx(), 84.dp.roundToPx(), 48.dp.roundToPx()) }
+        val leftInset = minOf(408.dp, maxWidth * .38f) + 32.dp
+        LaunchedEffect(surface, topInset, leftInset, density) {
+            with(density) { surface.setViewportInsets(leftInset.roundToPx(), topInset.roundToPx(), 84.dp.roundToPx(), 48.dp.roundToPx()) }
         }
         MapCanvas(surface, Modifier.fillMaxSize())
     }

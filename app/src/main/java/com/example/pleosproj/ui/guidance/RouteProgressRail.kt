@@ -1,5 +1,7 @@
 package com.example.pleosproj.ui.guidance
 
+import com.example.pleosproj.ui.theme.NavigationBlue
+import com.example.pleosproj.ui.theme.NavigationBlueLight
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
@@ -36,7 +38,7 @@ internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, mo
     val current = progress.currentRatio.coerceIn(0.0, 1.0)
     val colors = androidx.compose.material3.MaterialTheme.colorScheme
     val dark = colors.surface.luminance() < .5f
-    val purple = if (dark) Color(0xFFB6A0FF) else Color(0xFF7145D6)
+    val routeColor = if (dark) NavigationBlueLight else NavigationBlue
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("남은 경로", fontSize = 14.sp, color = colors.onSurfaceVariant)
         Text(distanceText(remainingMeters), fontSize = 27.sp, fontWeight = FontWeight.Bold)
@@ -51,8 +53,8 @@ internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, mo
             Canvas(Modifier.fillMaxSize().semantics { contentDescription = "${distanceText(remainingMeters)} 남음 · 전체 경로의 ${(current * 100).toInt()}% 지점" }) {
                 val x = 10.dp.toPx()
                 fun y(ratio: Double): Float = ((1 - ratio.coerceIn(0.0, 1.0)) * size.height).toFloat()
-                drawLine(purple.copy(alpha = .18f), Offset(x, 0f), Offset(x, size.height), 10.dp.toPx())
-                drawLine(purple, Offset(x, 0f), Offset(x, y(current)), 10.dp.toPx())
+                drawLine(routeColor.copy(alpha = .18f), Offset(x, 0f), Offset(x, size.height), 10.dp.toPx())
+                drawLine(routeColor, Offset(x, 0f), Offset(x, y(current)), 10.dp.toPx())
                 progress.segments.filter { max(it.startRatio, it.endRatio) >= current }.forEach { segment ->
                     if (segment.kind == SegmentKind.CONGESTION_HEAVY || segment.kind == SegmentKind.CONGESTION_SLOW)
                         drawLine(segmentColor(segment), Offset(x, y(segment.startRatio)), Offset(x, y(segment.endRatio)), 10.dp.toPx(), StrokeCap.Round)
@@ -62,7 +64,7 @@ internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, mo
                 drawPath(Path().apply {
                     moveTo(x, here - 11.dp.toPx()); lineTo(x + 8.dp.toPx(), here + 8.dp.toPx())
                     lineTo(x, here + 4.dp.toPx()); lineTo(x - 8.dp.toPx(), here + 8.dp.toPx()); close()
-                }, purple)
+                }, routeColor)
             }
             railLabels(labeled, height.value).forEach { item ->
                 val segment = item.segment
@@ -79,7 +81,7 @@ internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, mo
                 }
             }
             Text("내 위치", Modifier.padding(start = 26.dp).offset(y = (height * (1 - current).toFloat() - 16.dp)
-                .coerceIn(0.dp, (height - 28.dp).coerceAtLeast(0.dp))), fontSize = 12.sp, color = purple)
+                .coerceIn(0.dp, (height - 28.dp).coerceAtLeast(0.dp))), fontSize = 12.sp, color = routeColor)
         }
         Text("출발", fontSize = 12.sp, color = colors.onSurfaceVariant)
     }
@@ -96,7 +98,7 @@ internal fun progressForLabels(progress: RouteProgress, hazards: List<Hazard>): 
 }
 
 private fun segmentColor(segment: ProgressSegment): Color = when (segment.kind) {
-    SegmentKind.TURN -> Color(0xFF7145D6)
+    SegmentKind.TURN -> NavigationBlue
     SegmentKind.CONGESTION_SLOW -> Color(0xFFC39A25)
     SegmentKind.CONGESTION_HEAVY -> Color(0xFFD05252)
     SegmentKind.HAZARD -> Color(hazardColor(segment.hazardKind ?: HazardKind.FLOOD))

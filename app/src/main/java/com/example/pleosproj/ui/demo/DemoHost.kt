@@ -147,20 +147,21 @@ private fun clock(seconds: Double): String {
 private fun DemoMapToolbar(session: DemoSession, onReset: () -> Unit, onChooseScenario: () -> Unit, onExit: () -> Unit) {
     val playback = session.playback
     Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp), shadowElevation = 2.dp) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column {
-                Text("시연 · ${session.title}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.widthIn(max = 480.dp).padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("시연 · ${session.title}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("${clock(playback.seconds)} / ${clock(playback.durationSeconds.toDouble())}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
-            TextButton(onClick = { if (playback.playing) session.pause() else session.play() }) {
-                Text(if (playback.playing) "일시정지" else "재생", fontSize = 14.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = { if (playback.playing) session.pause() else session.play() }, contentPadding = PaddingValues(4.dp)) {
+                    Text(if (playback.playing) "일시정지" else "재생", fontSize = 13.sp)
+                }
+                for (speed in listOf(1.0, 2.0, 4.0)) FilterChip(selected = playback.speed == speed,
+                    onClick = { session.changeSpeed(speed) }, label = { Text("${speed.toInt()}배", fontSize = 12.sp) })
+                TextButton(onClick = onReset, contentPadding = PaddingValues(4.dp)) { Text("처음으로", fontSize = 12.sp) }
+                TextButton(onClick = onChooseScenario, contentPadding = PaddingValues(4.dp)) { Text("다른 시연", fontSize = 12.sp) }
+                TextButton(onClick = onExit, contentPadding = PaddingValues(4.dp)) { Text("첫 화면", fontSize = 12.sp) }
             }
-            for (speed in listOf(1.0, 2.0, 4.0)) FilterChip(selected = playback.speed == speed,
-                onClick = { session.changeSpeed(speed) }, label = { Text("${speed.toInt()}배", fontSize = 12.sp) })
-            TextButton(onClick = onReset) { Text("처음으로", fontSize = 12.sp) }
-            TextButton(onClick = onChooseScenario) { Text("다른 시연", fontSize = 12.sp) }
-            TextButton(onClick = onExit) { Text("첫 화면", fontSize = 12.sp) }
         }
     }
 }

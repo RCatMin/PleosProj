@@ -1,5 +1,6 @@
 package com.example.pleosproj.ui.map
 
+import com.example.pleosproj.ui.theme.NavigationBlueHex
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -342,7 +343,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
             lineColor("#FFFFFF"), lineWidth(14f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
         style.addLayer(LineLayer("compare-alternative", "compare-routes").withFilter(alternative).withProperties(
-            lineColor("#B5A6D4"), lineWidth(7f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+            lineColor("#A7C3FA"), lineWidth(7f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
         style.addLayer(LineLayer("compare-excluded", "compare-routes").withFilter(excluded).withProperties(
             lineColor("#9C2864"), lineWidth(5f), lineDasharray(arrayOf(1.5f, 1.5f)),
@@ -352,7 +353,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
             lineColor("#FFFFFF"), lineWidth(15f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
         style.addLayer(LineLayer("compare-selected", "compare-routes").withFilter(selected).withProperties(
-            lineColor("#7145D6"), lineWidth(9f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+            lineColor(NavigationBlueHex), lineWidth(9f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
     }
 
@@ -375,7 +376,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
             lineColor("#FFFFFF"), lineWidth(14f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
         style.addLayer(LineLayer("route-line", "guidance-route").withProperties(
-            lineColor("#7145D6"), lineWidth(8f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+            lineColor(NavigationBlueHex), lineWidth(8f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
         style.addLayer(CircleLayer("hazard-points", "hazards").withProperties(
             circleRadius(15f), circleColor(Expression.get("color")), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f),
@@ -391,7 +392,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
             ))
         style.addLayer(CircleLayer("departure", "locations")
             .withFilter(Expression.eq(Expression.get("label"), "출발")).withProperties(
-                circleRadius(10f), circleColor("#FFFFFF"), circleStrokeColor("#7145D6"), circleStrokeWidth(4f),
+                circleRadius(10f), circleColor("#FFFFFF"), circleStrokeColor(NavigationBlueHex), circleStrokeWidth(4f),
             ))
         style.addLayer(SymbolLayer("endpoint-labels", "locations")
             .withFilter(Expression.neq(Expression.get("label"), "내 위치")).withProperties(
@@ -415,7 +416,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
         canvas.drawCircle(40f, 40f, 39f, paint)
         paint.color = android.graphics.Color.WHITE
         canvas.drawCircle(40f, 40f, 28f, paint)
-        paint.color = android.graphics.Color.parseColor("#7145D6")
+        paint.color = android.graphics.Color.parseColor(NavigationBlueHex)
         canvas.drawCircle(40f, 40f, 24f, paint)
         val arrow = Path().apply {
             moveTo(40f, 24f)
