@@ -185,7 +185,8 @@ class MapSurface(context: Context, savedState: Bundle?) {
 
     fun zoomBy(amount: Double) {
         val loaded = map ?: return
-        zoomAdjustment = (zoomAdjustment + amount).coerceIn(-5.0, 3.0)
+        // 비교 중 확대는 안내로 돌아왔을 때의 확대 배율을 바꾸지 않는다.
+        if (comparison == null) zoomAdjustment = (zoomAdjustment + amount).coerceIn(-5.0, 3.0)
         loaded.animateCamera(CameraUpdateFactory.zoomBy(amount), 220)
     }
 

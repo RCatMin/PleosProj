@@ -8,6 +8,7 @@
 | [winter-compare-return.png](winter-compare-return.png) | 겨울 15:45에서 들어온 비교 화면의 복귀 버튼·평면 지도·숨긴 시점 선택입니다. |
 | [winter-compare-night.png](winter-compare-night.png) | 확대·전체 경로·주야간 조작 후에도 평면 비교를 유지합니다. |
 | [winter-returned-guidance.png](winter-returned-guidance.png) | 15:45의 경고·위치·정지 상태와 원래 운전석 시점을 유지해 복귀합니다. |
+| [winter-before-compare.png](winter-before-compare.png) | 비교 진입 전의 운전석 시점입니다. 비교 화면에서 확대해도 복귀 후 이 배율을 유지합니다. |
 | [rain-returned-guidance.png](rain-returned-guidance.png) | 폭우 08:25의 이전 안내·경고에 복귀합니다. |
 | [live-compare-return.png](live-compare-return.png) | 실제 안내의 다른 길 비교에서도 복귀 버튼을 시작 버튼 위에 배치합니다. |
 | [live-returned-guidance.png](live-returned-guidance.png) | 실제 안내 복귀 시 기존 경로의 진행률을 유지합니다. |
