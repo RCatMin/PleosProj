@@ -77,6 +77,16 @@ class Routing(
             .minByOrNull { it.durationSeconds }
     }
 
+    /** 안내 중 [route] 근처의 ITS 돌발상황을 다시 받는다. 받지 못하면 null (이전 값을 그대로 쓴다) */
+    fun liveRiskPoints(route: RoutePlan): List<RiskPoint>? {
+        val fetchEvents = events ?: return emptyList()
+        val all = route.line
+        val margin = 0.005
+        return runCatching {
+            fetchEvents(all.minOf { it.lat } - margin, all.minOf { it.lng } - margin, all.maxOf { it.lat } + margin, all.maxOf { it.lng } + margin)
+        }.onFailure { warn("안내 중 돌발상황 실패: ${it.message}") }.getOrNull()?.mapIndexed { i, e -> riskPoint(i, e) }
+    }
+
     /** 이미 정한 경로들을 다시 비교한다 (재탐색·우회 뒤 위험도 갱신) */
     fun compare(
         candidates: List<RoutePlan>, destinationName: String, vehicle: VehicleSignals, now: LocalDateTime = LocalDateTime.now(),

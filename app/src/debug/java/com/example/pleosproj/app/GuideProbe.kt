@@ -10,6 +10,7 @@ import com.example.pleosproj.routing.KakaoNaviClient
 import com.example.pleosproj.routing.OsrmClient
 import com.example.pleosproj.routing.RouteSource
 import com.example.pleosproj.routing.Routing
+import com.example.pleosproj.routing.TestClosure
 import com.example.pleosproj.traffic.TrafficEvent
 import com.example.pleosproj.ui.state.GeoPoint
 import com.example.pleosproj.ui.state.GuidanceState
@@ -24,6 +25,7 @@ import java.io.File
  * `scripts/replay_route.py`가 그 길을 따라 에뮬레이터 위치를 움직이게 한다.
  * `guide_closure`: `guide_start`와 같지만, 추천 경로 40% 지점에 시험용 전면 통제를 넣고 그 경로로 안내한다.
  * 통제 앞에서 "우회할까요?" 알림이 뜨면 `guide_detour`로 우회를 확인한다 (실제 ITS 통제가 경로 위에 있을 일이 드물어서).
+ * `closure_ahead`: 화면에서 시작한 안내 중에 지금 위치 앞(`--es to 미터`, 기본 1500m)에 시험용 통제를 넣는다.
  * `adb logcat -s GuideProbe GuidanceSession Routing`으로 본다.
  */
 object GuideProbe {
@@ -32,7 +34,7 @@ object GuideProbe {
     private var session: GuidanceSession? = null
     private var count = 0
 
-    val commands = setOf("guide_start", "guide_closure", "guide_stop", "guide_detour", "guide_voice_off")
+    val commands = setOf("guide_start", "guide_closure", "guide_stop", "guide_detour", "guide_voice_off", "closure_ahead")
 
     fun run(context: Context, cmd: String, to: String?, name: String?) {
         Log.i(TAG, ">> $cmd")
@@ -41,6 +43,8 @@ object GuideProbe {
             "guide_voice_off" -> session?.voiceEnabled = false
             "guide_detour" -> lastAlert?.let { session?.acceptDetour(it) }
             "guide_closure" -> closure(context, to, name)
+            // 화면에서 시작한 안내에도 쓸 수 있다: 지금 위치에서 `--es to 1500`m 앞에 시험용 통제를 둔다
+            "closure_ahead" -> TestClosure.aheadMeters = to?.toDoubleOrNull() ?: 1500.0
             "guide_start" -> {
                 session?.stop()
                 count = 0
