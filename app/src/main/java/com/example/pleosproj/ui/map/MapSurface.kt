@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.pleosproj.ui.state.GuidanceState
+import com.example.pleosproj.ui.state.SegmentKind
 import com.example.pleosproj.ui.state.GeoPoint
 import com.example.pleosproj.ui.state.RouteCompareState
 import org.maplibre.android.MapLibre
@@ -230,8 +231,10 @@ class MapSurface(context: Context, savedState: Bundle?) {
         }
         val state = guidance ?: return
         val previous = renderedGuidance
-        val geometryChanged = previous == null || previous.routeLine != state.routeLine || previous.hazards != state.hazards
-        // 경로·위험 지점은 데이터가 바뀔 때만 갱신하고, 매 프레임의 위치 갱신과 분리한다.
+        val geometryChanged = previous == null || previous.routeLine != state.routeLine || previous.hazards != state.hazards ||
+            previous.progress.segments.filter { it.kind == SegmentKind.HAZARD } !=
+            state.progress.segments.filter { it.kind == SegmentKind.HAZARD }
+        // 경로·위험 구간은 데이터가 바뀔 때만 갱신하고, 매 프레임의 위치 갱신과 분리한다.
         if (geometryChanged) {
             val data = GuidanceMapData(state)
             if (previous == null) {
@@ -239,8 +242,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
             }
             if (previous == null || previous.routeLine != state.routeLine)
                 style.getSourceAs<GeoJsonSource>("guidance-route")?.setGeoJson(data.routeFeatures)
-            if (previous == null || previous.hazards != state.hazards)
-                style.getSourceAs<GeoJsonSource>("hazards")?.setGeoJson(data.hazardFeatures)
+            style.getSourceAs<GeoJsonSource>("hazards")?.setGeoJson(data.hazardFeatures)
         }
         if (geometryChanged ||
             (state.routeLine.isNullOrEmpty() && previous?.myPosition != state.myPosition)) {
@@ -378,13 +380,11 @@ class MapSurface(context: Context, savedState: Bundle?) {
         style.addLayer(LineLayer("route-line", "guidance-route").withProperties(
             lineColor(NavigationBlueHex), lineWidth(8f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
-        style.addLayer(CircleLayer("hazard-points", "hazards").withProperties(
-            circleRadius(15f), circleColor(Expression.get("color")), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f),
+        style.addLayer(LineLayer("hazard-outline", "hazards").withProperties(
+            lineColor("#FFFFFF"), lineWidth(16f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
-        style.addLayer(SymbolLayer("hazard-labels", "hazards").withProperties(
-            textFont(arrayOf("Noto Sans Regular")), textField(Expression.get("label")), textSize(21f),
-            textColor("#242127"), textHaloColor("#FFFFFF"), textHaloWidth(3f),
-            textOffset(arrayOf(0f, 1.7f)), textAllowOverlap(true), textIgnorePlacement(true),
+        style.addLayer(LineLayer("hazard-line", "hazards").withProperties(
+            lineColor(Expression.get("color")), lineWidth(11f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         ))
         style.addLayer(CircleLayer("destination", "locations")
             .withFilter(Expression.eq(Expression.get("label"), "목적지")).withProperties(

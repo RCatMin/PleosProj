@@ -39,4 +39,22 @@ class GuidanceMapDataTest {
         assertEquals(1, data.protectedPoints.size)
         assertEquals(state.myPosition.lng, data.protectedPoints.single().longitude(), 0.000001)
     }
+    @Test
+    fun hazardSourceContainsRouteLinesInsteadOfLabeledPointsAndClearsWithRoute() {
+        val original = PreviewStates.guidanceScenario
+        val state = original.copy(
+            routeLine = listOf(GeoPoint(37.0, 127.0), GeoPoint(37.01, 127.0)),
+            hazards = listOf(original.hazards.first().copy(position = GeoPoint(37.005, 127.0))),
+            progress = original.progress.copy(segments = emptyList()),
+        )
+        val data = GuidanceMapData(state)
+        val feature = data.hazardFeatures.features()!!.single()
+        assertTrue(feature.geometry() is org.maplibre.geojson.LineString)
+        assertFalse(feature.hasProperty("label"))
+        assertEquals(listOf(state.hazards.single().kind), data.hazardKinds)
+        val cleared = GuidanceMapData(state.copy(routeLine = null))
+        assertTrue(cleared.hazardFeatures.features()!!.isEmpty())
+        assertTrue(cleared.hazardKinds.isEmpty())
+    }
+
 }
