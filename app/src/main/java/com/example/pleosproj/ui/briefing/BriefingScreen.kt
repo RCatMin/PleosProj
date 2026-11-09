@@ -73,6 +73,7 @@ fun BriefingScreen(
     onCompare: () -> Unit,
     onDrivingStarted: () -> Unit,
     modifier: Modifier = Modifier,
+    voiceStatus: String? = null,
 ) {
     val currentOnDrivingStarted by rememberUpdatedState(onDrivingStarted)
     LaunchedEffect(isParked) { if (isParked == false) currentOnDrivingStarted() }
@@ -118,7 +119,7 @@ fun BriefingScreen(
                     }
                 }
             }
-            Box(Modifier.revealOnEntry(200)) { SpeakingStatus(state.speaking) }
+            Box(Modifier.revealOnEntry(200)) { SpeakingStatus(state.speaking, voiceStatus) }
         }
         val startInteraction = remember { MutableInteractionSource() }
         val startPressed by startInteraction.collectIsPressedAsState()
@@ -223,7 +224,7 @@ private fun BriefingWeather(weather: WeatherCard) {
 }
 
 @Composable
-private fun SpeakingStatus(speaking: Boolean) {
+private fun SpeakingStatus(speaking: Boolean, status: String?) {
     val color = if (speaking) Teal else Muted
     val phase = if (speaking) rememberInfiniteTransition(label = "briefing-speaking").animateFloat(
         initialValue = 0f, targetValue = (2 * PI).toFloat(),
@@ -241,6 +242,6 @@ private fun SpeakingStatus(speaking: Boolean) {
                     Offset(x, size.height * (1 + height) / 2), strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
             }
         }
-        Text(if (speaking) "음성 브리핑 중" else "음성 브리핑 대기", fontSize = 24.sp, color = color)
+        Text(status ?: if (speaking) "음성 브리핑 중" else "음성 브리핑 대기", fontSize = 24.sp, color = color)
     }
 }

@@ -16,6 +16,7 @@ internal interface DemoPlayer {
 internal class PlaybackController(
     initial: GuidanceState,
     val durationSeconds: Int,
+    private val onGuidance: ((GuidanceState) -> Unit)? = null,
     private val createPlayer: (Double, (Double, GuidanceState) -> Unit) -> DemoPlayer,
 ) {
     var guidance by mutableStateOf(initial)
@@ -37,6 +38,7 @@ internal class PlaybackController(
             if (current == generation) {
                 seconds = time.coerceIn(0.0, durationSeconds.toDouble())
                 guidance = state
+                onGuidance?.invoke(state)
                 if (finished) playing = false
             }
         }

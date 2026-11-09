@@ -8,22 +8,27 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.pleosproj.ui.demo.DemoApplication
 import com.example.pleosproj.ui.map.MapSurface
+import com.example.pleosproj.ui.theme.NavigationTheme
 import com.example.pleosproj.ui.permissions.*
+import com.example.pleosproj.vehicle.VehicleSignalReader
 
 class MainActivity : ComponentActivity() {
     private lateinit var mapSurface: MapSurface
+    private var vehicle: VehicleSignalReader? = null
+    private var parked by mutableStateOf<Boolean?>(null)
+    private var speedKph by mutableStateOf<Double?>(null)
+    private var vehicleGeneration = 0
     private var permissions by mutableStateOf(emptyList<AccessStatus>())
     private var permissionRequestRunning = false
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         permissionRequestRunning = false
         refreshPermissions()
+        if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) startVehicleReader()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,8 +36,8 @@ class MainActivity : ComponentActivity() {
         refreshPermissions()
         mapSurface = MapSurface(this, savedInstanceState)
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme()) {
-                DemoApplication(mapSurface, lifecycle, permissions, ::requestAccess)
+            NavigationTheme(mapSurface.night) {
+                DemoApplication(mapSurface, lifecycle, permissions, ::requestAccess, parked, speedKph)
             }
         }
         window.decorView.post {
@@ -85,6 +90,19 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         mapSurface.onStart()
+        startVehicleReader()
+    }
+
+    private fun startVehicleReader() {
+        vehicle?.stop()
+        parked = null
+        speedKph = null
+        val generation = ++vehicleGeneration
+        val reader = VehicleSignalReader(this) { snapshot ->
+            runOnUiThread { if (generation == vehicleGeneration) { parked = snapshot.parked; speedKph = snapshot.speedKph } }
+        }
+        vehicle = reader
+        runCatching { reader.start() }.onFailure { reader.stop(); parked = null; speedKph = null }
     }
     override fun onResume() {
         super.onResume()
@@ -96,6 +114,11 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
     override fun onStop() {
+        ++vehicleGeneration
+        vehicle?.stop()
+        vehicle = null
+        parked = null
+        speedKph = null
         mapSurface.onStop()
         super.onStop()
     }

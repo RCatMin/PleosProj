@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -112,7 +113,7 @@ internal fun WeatherGlyph(rain: Boolean, snow: Boolean, modifier: Modifier, anim
     Canvas(modifier) {
         val unit = size.minDimension / 100f
         val cycle = phase?.value ?: 0f
-        val color = Color(0xFF3E6264)
+        val color = Color(0xFF6E9CDE)
         val cloud = Path().apply {
             moveTo(20 * unit, 62 * unit)
             cubicTo(0f, 61 * unit, 4 * unit, 33 * unit, 26 * unit, 36 * unit)
@@ -120,24 +121,13 @@ internal fun WeatherGlyph(rain: Boolean, snow: Boolean, modifier: Modifier, anim
             cubicTo(95 * unit, 27 * unit, 105 * unit, 64 * unit, 78 * unit, 64 * unit)
             close()
         }
-        if (!rain && !snow) {
-            val sun = Color(0xFFBC8A45)
-            val center = Offset(71 * unit, 27 * unit)
-            rotate(cycle * 45f, center) {
-                repeat(8) { ray ->
-                    val angle = ray * PI / 4
-                    drawLine(sun.copy(alpha = 0.65f),
-                        center + Offset(cos(angle).toFloat(), sin(angle).toFloat()) * (22 * unit),
-                        center + Offset(cos(angle).toFloat(), sin(angle).toFloat()) * (27 * unit),
-                        strokeWidth = 2 * unit, cap = StrokeCap.Round)
-                }
-            }
-            drawCircle(sun, 18 * unit, center)
-        }
         // 아이콘의 작은 범위에서만 움직이고, 정보의 자리와 크기는 유지한다.
         translate(if (animated) sin(cycle * 2 * PI).toFloat() * 1.5f * unit else 0f, 0f) {
-            drawPath(cloud, Color(0xFFE5ECEA))
-            drawPath(cloud, color, style = Stroke(4 * unit, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(cloud, Brush.verticalGradient(if (rain || snow)
+                listOf(Color(0xFFF1F8FF), Color(0xFFAACCF4)) else listOf(Color(0xFFEAF0F8), Color(0xFFA8B9CD)),
+                startY = 12 * unit, endY = 68 * unit))
+            drawLine(Color(0xFFC6D4E8).copy(alpha = .5f), Offset(23 * unit, 71 * unit), Offset(77 * unit, 71 * unit),
+                5 * unit, StrokeCap.Round)
         }
         if (rain || snow) for ((index, x) in listOf(29f, 50f, 71f).withIndex()) {
             val fall = if (animated) (cycle * 3 + index * 0.33f) % 1f else 0.5f
@@ -146,8 +136,7 @@ internal fun WeatherGlyph(rain: Boolean, snow: Boolean, modifier: Modifier, anim
             if (snow) {
                 val drift = if (animated) sin(fall * PI * 2).toFloat() * 2f else 0f
                 val center = Offset((x + drift) * unit, y * unit)
-                drawLine(dropColor, center - Offset(4 * unit, 0f), center + Offset(4 * unit, 0f), 2.5f * unit)
-                drawLine(dropColor, center - Offset(0f, 4 * unit), center + Offset(0f, 4 * unit), 2.5f * unit)
+                drawCircle(dropColor, 4 * unit, center, style = Stroke(1.7f * unit))
             } else drawLine(dropColor, Offset(x * unit, y * unit), Offset((x - 4) * unit, (y + 7) * unit),
                 4 * unit, StrokeCap.Round)
         }

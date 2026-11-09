@@ -30,63 +30,53 @@ internal fun durationText(seconds: Int): String {
 }
 
 @Composable
-internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, modifier: Modifier = Modifier) {
-    val purple = Color(0xFF7145D6)
+internal fun RouteProgressRail(progress: RouteProgress, remainingMeters: Int, modifier: Modifier = Modifier, hazards: List<Hazard> = emptyList()) {
     val current = progress.currentRatio.coerceIn(0.0, 1.0)
-    Column(modifier.background(Color.White).padding(horizontal = 22.dp, vertical = 24.dp)) {
-        Text("남은 경로", fontSize = 24.sp, fontWeight = FontWeight.Medium)
-        Text(distanceText(remainingMeters), fontSize = 38.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(12.dp))
-        Text("목적지", fontSize = 20.sp, color = Color(0xFF68666D))
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 18.dp)) {
+    val colors = androidx.compose.material3.MaterialTheme.colorScheme
+    Column(modifier, horizontalAlignment = Alignment.End) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp)) {
             val height = maxHeight
-            Canvas(Modifier.fillMaxSize().semantics { contentDescription = "전체 경로의 ${(current * 100).toInt()}% 지점" }) {
-                val x = 22.dp.toPx()
+            Canvas(Modifier.fillMaxSize().semantics { contentDescription = "${distanceText(remainingMeters)} 남음 · 전체 경로의 ${(current * 100).toInt()}% 지점" }) {
+                val x = size.width - 22.dp.toPx()
                 fun y(ratio: Double): Float = ((1 - ratio.coerceIn(0.0, 1.0)) * size.height).toFloat()
-                drawLine(Color(0xFFE7E4EB), Offset(x, 0f), Offset(x, size.height), 12.dp.toPx(), StrokeCap.Round)
-                drawLine(purple, Offset(x, 0f), Offset(x, y(current)), 12.dp.toPx(), StrokeCap.Round)
+                drawLine(colors.surface, Offset(x, 0f), Offset(x, size.height), 18.dp.toPx(), StrokeCap.Round)
+                drawLine(Color(0xFF7145D6), Offset(x, 0f), Offset(x, y(current)), 7.dp.toPx(), StrokeCap.Round)
                 progress.segments.filter { max(it.startRatio, it.endRatio) >= current }.forEach { segment ->
-                    val color = segmentColor(segment)
-                    if (segment.kind == SegmentKind.TURN) {
-                        drawCircle(Color.White, 12.dp.toPx(), Offset(x, y(segment.startRatio)))
-                        drawCircle(color, 7.dp.toPx(), Offset(x, y(segment.startRatio)))
-                    } else {
-                        drawLine(color, Offset(x, y(segment.startRatio)), Offset(x, y(segment.endRatio)),
-                            22.dp.toPx(), StrokeCap.Round)
-                    }
+                    if (segment.kind == SegmentKind.CONGESTION_HEAVY || segment.kind == SegmentKind.CONGESTION_SLOW) drawLine(segmentColor(segment), Offset(x, y(segment.startRatio)),
+                        Offset(x, y(segment.endRatio)), 12.dp.toPx(), StrokeCap.Round)
                 }
-                val currentY = y(current)
-                val arrow = Path().apply {
-                    moveTo(x, currentY - 17.dp.toPx())
-                    lineTo(x + 16.dp.toPx(), currentY + 15.dp.toPx())
-                    lineTo(x, currentY + 8.dp.toPx())
-                    lineTo(x - 16.dp.toPx(), currentY + 15.dp.toPx())
-                    close()
-                }
-                drawCircle(Color.White, 23.dp.toPx(), Offset(x, currentY))
-                drawPath(arrow, purple)
+                drawCircle(colors.surface, 15.dp.toPx(), Offset(x, y(current)))
+                drawCircle(Color(0xFF7145D6), 10.dp.toPx(), Offset(x, y(current)))
             }
-            Text("내 위치", Modifier.offset(x = 48.dp, y = height * (1 - current).toFloat() - 14.dp),
-                fontSize = 21.sp, color = purple, fontWeight = FontWeight.SemiBold)
-            // 선과 표식은 실제 비율을 유지하고, 가까운 구간의 설명만 겹치지 않게 배치한다.
-            railLabels(progress, height.value).forEach { item ->
+            railLabels(progressForLabels(progress, hazards), height.value).forEach { item ->
                 val segment = item.segment
-                val label = segment.label ?: when (segment.kind) {
-                    SegmentKind.TURN -> "회전"
-                    SegmentKind.CONGESTION_SLOW -> "서행"
-                    SegmentKind.CONGESTION_HEAVY -> "정체"
-                    SegmentKind.HAZARD -> "위험 구간"
-                }
-                Column(Modifier.padding(start = 48.dp).fillMaxWidth().offset(y = item.top.dp)) {
-                    Text(label, fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = segmentColor(segment),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    val distance = ((segment.startRatio - current).coerceAtLeast(0.0) * progress.totalMeters).toInt()
-                    Text(distanceText(distance), fontSize = 19.sp, color = Color(0xFF68666D))
+                val distance = ((segment.startRatio - current).coerceAtLeast(0.0) * progress.totalMeters).toInt()
+                Row(Modifier.fillMaxWidth().offset(y = item.top.dp), horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp), color = colors.surface) {
+                        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.End) {
+                            Text(if (segment.endRatio > segment.startRatio && current >= segment.startRatio) "지나는 중" else distanceText(distance),
+                                fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    if (segment.kind == SegmentKind.HAZARD) HazardGlyph(segment.hazardKind ?: HazardKind.FLOOD, Modifier.size(32.dp))
+                    else Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                        Canvas(Modifier.size(18.dp)) { drawCircle(segmentColor(segment)) }
+                    }
                 }
             }
         }
-        Text("출발", fontSize = 20.sp, color = Color(0xFF68666D))
     }
+}
+
+// 색칠한 위험 구간의 시작과 실제 위험 지점은 다르다. 거리 이름표는 지점 좌표의 비율을 쓴다.
+internal fun progressForLabels(progress: RouteProgress, hazards: List<Hazard>): RouteProgress {
+    val points = hazards.mapNotNull { hazard -> hazard.ratioOnRoute?.let { ratio ->
+        ProgressSegment(SegmentKind.HAZARD, ratio, ratio, hazard.title, hazard.kind)
+    } }
+    return progress.copy(segments = progress.segments.filter {
+        it.kind != SegmentKind.TURN && (points.isEmpty() || it.kind != SegmentKind.HAZARD)
+    } + points)
 }
 
 private fun segmentColor(segment: ProgressSegment): Color = when (segment.kind) {
