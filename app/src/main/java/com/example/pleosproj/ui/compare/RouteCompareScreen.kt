@@ -57,7 +57,7 @@ fun RouteCompareScreen(
                     NavigationIcon(NavigationIconKind.CAR, Modifier.size(24.dp), colors.primary)
                     Text(state.destinationName, Modifier.weight(1f), fontSize = 21.sp, fontWeight = FontWeight.SemiBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    onBack?.let { TextButton(onClick = it) { Text(if (onContinue != null) "돌아가기" else "변경", fontSize = 15.sp) } }
+                    if (onContinue == null) onBack?.let { TextButton(onClick = it) { Text("변경", fontSize = 15.sp) } }
                 }
             }
             state.adviceWhenAllRisky?.let {
@@ -79,15 +79,15 @@ fun RouteCompareScreen(
                         }
                     }
                     startNotice?.let { Text(it, Modifier.padding(horizontal = 8.dp), fontSize = 14.sp, color = colors.onSurfaceVariant) }
+                    onContinue?.let { action ->
+                        OutlinedButton(onClick = action, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                            Text("이전으로 돌아가기", fontSize = 17.sp)
+                        }
+                    }
                     Button(onClick = { selected?.let { onStart(it.id) } }, enabled = selected != null && inputEnabled,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp), shape = RoundedCornerShape(32.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF23252B), contentColor = androidx.compose.ui.graphics.Color.White)) {
-                        Text(if (onContinue != null) "이 길로 안내 시작" else startActionLabel, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    onContinue?.let { action ->
-                        OutlinedButton(onClick = action, modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)) {
-                            Text("지금 길로 계속 가기", fontSize = 17.sp)
-                        }
+                        Text(startActionLabel, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }

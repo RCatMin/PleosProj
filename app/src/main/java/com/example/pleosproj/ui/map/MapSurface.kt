@@ -130,6 +130,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
 
     fun render(state: RouteCompareState) {
         continuousMotion = false
+        followingPosition = false
         motion = null
         if (comparison?.candidates != state.candidates) cameraPending = true
         guidance = null
@@ -175,6 +176,8 @@ class MapSurface(context: Context, savedState: Bundle?) {
     }
 
     fun showViewpoint(value: MapViewpoint) {
+        // 비교 중에는 시점 변경을 막고 안내에서 선택했던 시점은 보존한다.
+        if (comparison != null) return
         viewpoint = value
         zoomAdjustment = 0.0
         resetCamera()
@@ -195,6 +198,7 @@ class MapSurface(context: Context, savedState: Bundle?) {
     fun toggleNight() { night = !night; reload() }
 
     fun fitRoute() {
+        if (comparison != null) { resetCamera(); return }
         val loaded = map ?: return
         followingPosition = false
         val points = comparison?.candidates?.flatMap { it.routeLine }
@@ -309,9 +313,9 @@ class MapSurface(context: Context, savedState: Bundle?) {
             fitCoordinates(loadedMap, state.candidates.flatMap { it.routeLine } +
                 state.candidates.flatMap { it.hazards }.map { it.position })
             val camera = loadedMap.cameraPosition
+            // 안내 시점과 별개로 비교는 항상 북쪽이 위인 평면 전체 경로로 표시한다.
             loadedMap.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(camera)
-                .tilt(when (viewpoint) { MapViewpoint.OVERHEAD -> 30.0; MapViewpoint.NORTH_UP -> 0.0; MapViewpoint.DRIVER -> 55.0 })
-                .bearing(if (viewpoint == MapViewpoint.NORTH_UP) 0.0 else camera.bearing).build()))
+                .tilt(0.0).bearing(0.0).build()))
             cameraPending = false
             return
         }

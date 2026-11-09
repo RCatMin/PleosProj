@@ -1,6 +1,7 @@
 package com.example.pleosproj.ui.map
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -19,7 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-internal fun MapControls(surface: MapSurface, voiceMuted: Boolean, onToggleVoice: () -> Unit, modifier: Modifier = Modifier) {
+internal fun MapControls(surface: MapSurface, voiceMuted: Boolean, onToggleVoice: () -> Unit, modifier: Modifier = Modifier,
+    comparisonMode: Boolean = false) {
     var menu by remember { mutableStateOf<String?>(null) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
@@ -29,13 +31,13 @@ internal fun MapControls(surface: MapSurface, voiceMuted: Boolean, onToggleVoice
                 MapControl("지도 축소", "minus", joined = true) { surface.zoomBy(-1.0) }
             }
         }
-        Box {
+        if (!comparisonMode) Box {
             MapControl("지도 보기 방식 · ${surface.viewpoint.label}", "compass") { menu = "view" }
-            Surface(Modifier.align(Alignment.BottomCenter).offset(y = 2.dp), color = com.example.pleosproj.ui.theme.NavigationBlue,
-                contentColor = androidx.compose.ui.graphics.Color.White, shape = RoundedCornerShape(4.dp)) {
-                Text(when (surface.viewpoint) { MapViewpoint.OVERHEAD -> "3D"; MapViewpoint.NORTH_UP -> "N"; MapViewpoint.DRIVER -> "앞" },
-                    Modifier.padding(horizontal = 3.dp), fontSize = 9.sp)
-            }
+            // 배지는 시점 버튼의 터치를 가리지 않도록 비대화형 텍스트로 겹친다.
+            Text(when (surface.viewpoint) { MapViewpoint.OVERHEAD -> "3D"; MapViewpoint.NORTH_UP -> "N"; MapViewpoint.DRIVER -> "앞" },
+                Modifier.align(Alignment.BottomCenter).offset(y = 2.dp)
+                    .background(com.example.pleosproj.ui.theme.NavigationBlue, RoundedCornerShape(4.dp)).padding(horizontal = 3.dp),
+                color = androidx.compose.ui.graphics.Color.White, fontSize = 9.sp)
             DropdownMenu(expanded = menu == "view", onDismissRequest = { menu = null }) {
                 MapViewpoint.entries.forEach { value ->
                     DropdownMenuItem(text = { Text((if (surface.viewpoint == value) "✓  " else "    ") + value.label, fontSize = 17.sp) },
