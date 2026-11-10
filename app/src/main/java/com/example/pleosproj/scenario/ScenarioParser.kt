@@ -9,17 +9,24 @@ import com.example.pleosproj.ui.state.TurnKind
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalTime
+import java.time.temporal.ChronoUnit
 
 /** assets/scenarios 폴더의 JSON 파일을 [Scenario]로 읽는다. 형식은 docs/scenario-format.md 참고. */
 object ScenarioParser {
 
-    fun parse(json: String): Scenario {
+    /**
+     * `startTime`이 `"now"`인 시나리오는 [now]를 분 단위로 잘라 출발 시각으로 쓴다.
+     * 시연하는 시각에 맞춰 도착 예정 시각이 나오게 하려는 것이다.
+     */
+    fun parse(json: String, now: LocalTime = LocalTime.now()): Scenario {
         val o = JSONObject(json)
         return Scenario(
             id = o.getString("id"),
             title = o.getString("title"),
             summary = o.optString("summary"),
-            startTime = LocalTime.parse(o.getString("startTime")),
+            startTime = o.getString("startTime").let {
+                if (it == "now") now.truncatedTo(ChronoUnit.MINUTES) else LocalTime.parse(it)
+            },
             destinationName = o.getString("destinationName"),
             routes = o.getJSONArray("routes").map { route(it) },
             driveRouteId = o.getString("driveRouteId"),
