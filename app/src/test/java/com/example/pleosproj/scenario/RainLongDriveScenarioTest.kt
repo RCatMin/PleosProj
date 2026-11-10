@@ -95,6 +95,16 @@ class RainLongDriveScenarioTest {
     }
 
     @Test
+    fun `안내 중 날씨는 지금·10km 앞·20km 앞·목적지를 지날 시각 기준으로 보여 준다`() {
+        val start = engine.guidance(0.0).weather
+        assertEquals(listOf("지금", "10km 앞", "20km 앞", "목적지"), start.map { it.label })
+        // 출발할 때는 시간당 15mm, 10km 앞(약 15분 뒤) 40mm, 20km 앞(약 30분 뒤) 50mm, 목적지(1시간 뒤) 65mm
+        assertEquals(listOf(15.0, 40.0, 50.0, 65.0), start.map { it.rainMmPerHour })
+        // 남은 거리가 20km보다 짧으면 20km 앞 카드는 넣지 않는다
+        assertEquals(listOf("지금", "10km 앞", "목적지"), engine.guidance(2400.0).weather.map { it.label })
+    }
+
+    @Test
     fun `진행률을 옮겨도 위치는 그 시점의 경로 위에 있다`() {
         listOf(0.0, 900.0, 1800.0, 2700.0, 3599.0).forEach { t ->
             val g = engine.guidance(t)

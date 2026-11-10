@@ -131,7 +131,7 @@ class ScenarioEngine(
                     ProgressSegment(SegmentKind.HAZARD, slice.startRatio, slice.endRatio, h?.title ?: "위험 구간", h?.kind)
                 },
             ),
-            weather = weatherCards(seconds, traveled),
+            weather = guidanceWeatherCards(seconds, traveled),
             alert = alert(seconds, traveled),
         )
     }
@@ -195,6 +195,21 @@ class ScenarioEngine(
         // 10분 뒤 날씨: 실제로는 그때 지날 구간의 예보를 쓴다
         val later = scenario.weather.at(seconds + 600) { it.atSeconds }
         return listOf(card("지금", now), card("10분 뒤", later))
+    }
+
+    /**
+     * 안내 화면 날씨. 실제 안내([com.example.pleosproj.routing.RouteGuidance])와 같이 지금, 10km·20km 앞, 목적지 카드를 만든다.
+     * 시나리오 날씨는 시간만 따르므로 앞 지점은 그곳을 지날 시각의 날씨다. 목적지보다 먼 카드는 넣지 않는다.
+     */
+    private fun guidanceWeatherCards(seconds: Double, traveled: Double): List<WeatherCard> {
+        val remaining = (driveLength - traveled).coerceAtLeast(0.0)
+        val ahead = listOf(10_000.0, 20_000.0).filter { it < remaining }.map { d ->
+            val passAt = seconds + drive.durationSeconds * (d / driveLength)
+            card("${(d / 1000).roundToInt()}km 앞", scenario.weather.at(passAt) { it.atSeconds })
+        }
+        val arrival = seconds + drive.durationSeconds * (remaining / driveLength)
+        return listOf(card("지금", scenario.weather.at(seconds) { it.atSeconds })) + ahead +
+            card("목적지", scenario.weather.at(arrival) { it.atSeconds })
     }
 
     private fun card(label: String, w: WeatherKey) = WeatherCard(
