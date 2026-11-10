@@ -28,7 +28,7 @@
 | 필드 | 뜻 |
 | --- | --- |
 | `summary` | 시연 모드에서 시나리오를 고를 때 보여 줄 한 줄 설명 |
-| `startTime` | 출발 시각 (`HH:mm`). 도착 예정 시각 계산에 쓴다 |
+| `startTime` | 출발 시각 (`HH:mm`). 도착 예정 시각 계산에 쓴다. `"now"`라고 쓰면 시나리오를 불러온 시각(분 단위)이 출발 시각이 된다 |
 | `routes` | 후보 경로. 경로 비교 화면에 그대로 나온다 |
 | `driveRouteId` | 실제로 달리는 경로. 보통 추천될 경로를 넣는다 |
 | `hazards` | 위험 지점 |
@@ -145,3 +145,30 @@ python3 scripts/replay_scenario.py rain-long-drive --speed 4 --from 1170   # 호
 ```
 
 경로선을 다시 받을 때는 `python3 scripts/kakao_route.py rain-long-drive`를 쓴다. `RainLongDriveScenarioTest`가 길이, 도착 시각, 추천 경로, 위험 지점 다섯 곳의 위치와 경고를 확인한다.
+
+## 김포공항 폭우 시나리오 (`rain-airport-drive`)
+
+원티드그라운드(송파구 백제고분로37길 22)에서 김포공항까지 양재대로·남부순환로로 약 37km를 1시간(3600초)에 달린다. `startTime`이 `"now"`라서 시연을 시작한 시각이 출발 시각이 되고, 도착 예정은 그 1시간 뒤로 나온다.
+
+후보 경로는 세 개다. 한강변 두 길이 모두 통제되어 남부순환로 길만 갈 수 있는 상황이다.
+
+- 올림픽대로 (50분): 노량진 구간이 출발 15분 뒤부터 통제되는 것으로 가정해, 그곳을 지날 때는 막혀 있어 후보에서 빠진다.
+- 양재대로·남부순환로 (60분): 추천 경로이자 실제로 달리는 경로다.
+- 강변북로 (52분): 이촌 구간이 출발 20분 뒤부터 통제되는 것으로 가정해 후보에서 빠진다.
+
+주행 경로에서 지나는 위험 지점과 그곳을 지나는 시각은 다음과 같다. 경고는 1.2km 앞(약 2분 전)부터 뜬다.
+
+- 8분, 일원지하차도 (`irwon-underpass`): 지하차도 침수 우려. 5분에 호우경보와 시간당 40mm 비로 바뀐다.
+- 24분, 사당역 사거리 부근 저지대 도로 (`sadang-low`): 저지대 침수 우려.
+- 33분, 신림역 부근 도림천변 도로 (`sillim-dorimcheon`): 하천변 물 고임 우려.
+- 44분, 개봉지하차도 (`gaebong-underpass`): 지하차도 침수 우려.
+- 51분, 남부순환로 신월동 구간 (`sinwol-visibility`): 48분부터 시간당 65mm로 비가 가장 세져 앞이 잘 보이지 않는 구간.
+
+지하차도와 도로 이름은 실제 이름이고 경로선은 카카오모빌리티 실제 경로다. 그곳의 침수 우려와 한강변 통제, 날씨는 시연을 위한 가정이며 실제 기록이 아니다. 시나리오 요약에도 "시연용 가정"이라고 적었다.
+
+```bash
+python3 scripts/replay_scenario.py rain-airport-drive --speed 4
+python3 scripts/replay_scenario.py rain-airport-drive --speed 4 --from 1310   # 사당역 저지대 2분 전
+```
+
+경로선을 다시 받을 때는 `python3 scripts/kakao_route.py rain-airport-drive`를 쓴다. `RainAirportDriveScenarioTest`가 출발·도착 시각, 추천 경로, 위험 지점 위치와 경고를 확인한다.
